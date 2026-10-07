@@ -103,6 +103,12 @@
   number`, exit 128), so the required `gate` check was red on every PR for a
   reason unrelated to the code; fetch only what is actually missing
   ([BUG-2026-0007](BUGS.md))
+* **test:** keep fixture ZAP output off real CI surfaces — `pnpm test` runs
+  with `GITHUB_STEP_SUMMARY` pointing at Darwaza 1's job summary, so each
+  `main()` call in the zap-policy specs published a fake "blocking findings"
+  table; the spec now unsets the variable and asserts its output against a
+  temp file instead, keeping 19/19 coverage
+  ([BUG-2026-0008](BUGS.md))
 * **ci:** make Darwaza 2's DAST job enforce the policy it always claimed to —
   drop the two inputs `zaproxy/action-baseline` does not declare, stop the
   action from filing issues this token may not write, and evaluate the real

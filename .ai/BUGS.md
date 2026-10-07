@@ -13,54 +13,108 @@
 
 ## 1 · Open incidents
 
+### BUG-2026-0008 — the unit tests published fixture "ZAP findings" into a real CI job summary
+
+| field | value |
+| --- | --- |
+| status | 🔻 **OPEN — fix landed, verification pending** — the spec now unsets `GITHUB_STEP_SUMMARY` (and points it at a temp file for its own assertion); waiting on the Darwaza 1 run |
+| severity | **medium** — fake scan output rendered on a real CI surface, right next to real gate results |
+| area | `test/zap-policy.test.js` → `main()` summary branch |
+| introduced | BUG-2026-0006's fix (the policy evaluator + its 6 specs) |
+| rule produced | `.ai/RULES.md` → **L-34** (never present fixture output as real evidence) + `PRD.md`'s zero-placeholder rule |
+
+**Symptom**
+> Darwaza 1's job summary (run 37633575065, visible again on 37633577029)
+> rendered three *ZAP baseline policy* tables that were never produced by a
+> scan: `blocking findings: 2` (Medium *Content Security Policy Header Not
+> Set*, Low *X-Frame-Options Header Not Set*), then `0 / 1`, then `0 / 0`.
+> A reader would take fixture data for real gate output.
+
+**Root cause**
+
+`tools/zap-policy.js` writes to `process.env.GITHUB_STEP_SUMMARY` when it
+is set — correct behaviour for the real policy step, but GitHub sets that
+variable for *every* step, including `pnpm test`. The specs call `main()`
+directly, so each `main()` call appended a fixture table to Darwaza 1's
+actual job summary.
+
+**Fix**
+
+- `test/zap-policy.test.js` deletes `GITHUB_STEP_SUMMARY` at module load,
+  so no spec can ever write to a real job summary.
+- The summary branch stays covered: one assertion points the variable at a
+  temp file and asserts the rendered markdown (`## ZAP baseline policy`,
+  `blocking findings: **0**`, the no-findings line). Spec count unchanged
+  (**19/19**).
+
+**Verification:** pending the next Darwaza 1 run — its job summary must
+contain no fixture tables.
+
+---
+
+## 2 · Closed incidents
+
 ### BUG-2026-0007 — Darwaza 1's commitlint job could never lint a single commit
 
 | field | value |
 | --- | --- |
-| status | 🔻 **OPEN — fix landed, verification pending** — `ci.yml` corrected; waiting on the Darwaza 1 run it triggers |
+| status | ✅ **CLOSED** — 2026-10-07. **CI verified:** Darwaza 1 run **37633575065** on PR #2 (head `8fb3dc6`) → *Conventional commit lint* ✅ in 16s and the `gate` job ✅, run status **Success** |
 | severity | **high** — the required `gate` check was red on **every** PR for a reason unrelated to the code |
 | area | `.github/workflows/ci.yml` → `Lint PR commits` |
 | introduced | the original Darwaza 1 definition |
 | rule produced | `.ai/RULES.md` → **L-34** (a gate that fails for the wrong reason teaches the wrong lesson) |
 
-**Symptom**
-> Every Darwaza 1 run died in *Lint PR commits* before `commitlint`
-> executed:
-> `Run set -euo pipefail` → `fatal: depth 0 is not a positive number` →
-> `Process completed with exit code 128`.
-> Verified in both runs' logs: PR #1 (run 37626113851, job 112808586961,
-> head `f317c62`) and PR #2 (run 37626962194, job 112816689331, head
-> `3011797`) — identical line, identical exit code.
+**Symptom** (two stacked defects, fixed in this order)
+
+> 1. Every Darwaza 1 run died in *Lint PR commits* before `commitlint`
+>    executed: `Run set -euo pipefail` → `fatal: depth 0 is not a positive
+>    number` → `Process completed with exit code 128`. Verified in both
+>    runs' logs: PR #1 (run 37626113851, job 112808586961, head `f317c62`)
+>    and PR #2 (run 37626962194, job 112816689331, head `3011797`) —
+>    identical line, identical exit code.
+> 2. With the fetch fixed, the same job failed instantly with `exit code
+>    2` and a **0s** step (run 37631577869, job 112829647814): the step
+>    script's last line was missing its closing double-quote
+>    (`done <<< "$(git rev-list …)`), so bash hit a parse error the moment
+>    it reached the `while` compound.
 
 **Root cause**
 
 ```bash
-git fetch --no-tags --depth=0 origin "$BASE_SHA"
+git fetch --no-tags --depth=0 origin "$BASE_SHA"   # always exit 128
+…
+done <<< "$(git rev-list "$BASE_SHA..$HEAD_SHA")   # unterminated quote → exit 2
 ```
 
 git parses `--depth` as a *positive* integer and `die()`s on `0`
-(`builtin/fetch.c` → `depth %s is not a positive number`), so the command
-always exits 128; `set -euo pipefail` then aborts the step. The fetch was
-unnecessary anyway — the checkout above already runs with
-`fetch-depth: 0` (full history). Reproduced locally on git 2.56.0:
-the same `fatal:` line appears outside CI.
+(`depth %s is not a positive number`), so that line never worked; the
+checkout already runs with `fetch-depth: 0`, so the fetch was unnecessary
+too. Because bash parses each compound only when it reaches it, the old
+runs died at the fetch and never got far enough to expose the quote bug —
+one failure was hiding the other. Reproduced locally: git 2.56.0 prints the
+same `fatal:` line, and `bash -n` on the old script exits **2** with the
+same syntax error.
 
 **Fix**
 
-- The step now checks `git cat-file -e "$SHA^{commit}"` and only fetches
+- The step checks `git cat-file -e "$SHA^{commit}"` first and only fetches
   when a sha is genuinely missing (plain fetch, then `origin main`, then
-  `pull/<n>/head`), and fails with a *named* error if it still is.
+  `pull/<n>/head`), failing with a *named* error otherwise.
+- The here-string quote is closed.
+- Every `run: |` block in all six workflows is now syntax-checked with
+  `bash -n` (the extractor was validated against a deliberately broken
+  snippet, which fails exactly as CI did).
 - **Evidence discipline (L-34):** this incident also corrects the
-  BUG-2026-0005 record — the CI job **never** printed `scope-enum`; that
-  violation was reproduced *locally* against the real hook. The two
-  defects were independent: a non-conforming bot title (0005) and a job
-  that could not detect it (this one).
+  BUG-2026-0005 record — CI never printed `scope-enum`; that violation was
+  reproduced *locally* against the real hook. The defects were
+  independent: a non-conforming bot title (0005) and a job that could not
+  detect it (this one).
 
-**Verification:** pending the next Darwaza 1 run on a PR.
+**Verification:** CI — Darwaza 1 run **37633575065** (head `8fb3dc6`):
+*Conventional commit lint* success in 16s, quality matrix (20/22/24) ✅,
+Docker build ✅, `gate` ✅, run **Success** in 44s.
 
 ---
-
-## 2 · Closed incidents
 
 ### BUG-2026-0005 — release-please's PR title could never pass commitlint (`chore(main): …`)
 
@@ -116,7 +170,7 @@ published release, and PR #2 (the live release PR) is titled
 
 | field | value |
 | --- | --- |
-| status | ✅ **CLOSED** — 2026-10-07 (local gate 19/19 green; CI verification pending the push) |
+| status | ✅ **CLOSED** — 2026-10-07. **CI verified:** Darwaza 2 run **37631578262** on PR #2 (head `2773f08`) → *OWASP ZAP baseline (DAST)* ✅ with all three steps green (`Run ZAP baseline scan` → `Evaluate ZAP findings against the policy` → `Upload ZAP report`) and *Playwright E2E* ✅ |
 | severity | **critical** — a security gate reported red for the wrong reason and never evaluated a single finding |
 | area | `.github/workflows/e2e-gate.yml` → `zap` job |
 | introduced | the original Darwaza 2 definition |
@@ -189,8 +243,16 @@ The re-run surfaced two more annotations:
 
 **Verification:** `pnpm run check` exit 0 — typecheck ×2, lint
 `--max-warnings=0`, **19/19 tests**, build; `pnpm run e2e` green with the
-hardened headers. CI confirmation pending the push: the ZAP job must reach
-*Evaluate ZAP findings against the policy* and pass it.
+hardened headers. **CI verified** on Darwaza 2 run **37631578262**
+(PR #2, head `2773f08`): *OWASP ZAP baseline (DAST)* ✅ with every step green
+(*Run ZAP baseline scan* → *Evaluate ZAP findings against the policy* →
+*Upload ZAP report*) and *Playwright E2E* ✅; confirmed again on run
+**37633575301** (head `8fb3dc6`, status **Success**, 1m 43s) whose real
+policy summary reads **`blocking findings: 0` / `informational findings: 2`**
+(*Storable and Cacheable Content*, *Storable but Non-Cacheable Content* —
+risk 0, reported as notices, non-blocking by design). The two real findings
+are gone because the app now sends the headers, not because the gate was
+loosened (L-34).
 
 ---
 

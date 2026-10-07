@@ -6,6 +6,14 @@ const assert = require('node:assert/strict');
 
 const { riskCode, collectAlerts, group, renderSummary, main } = require('../tools/zap-policy');
 
+// On a GitHub runner GITHUB_STEP_SUMMARY points at a *real* job summary, and
+// main() appends to it when it is set. Left alone, every unit-test run would
+// publish fixture "ZAP findings" (Medium CSP, Low X-Frame-Options …) into the
+// Darwaza 1 job summary — fake data in a real CI surface (BUG-2026-0008).
+// Clear it here; one assertion below points it at a temp file instead, so the
+// summary branch stays covered.
+delete process.env.GITHUB_STEP_SUMMARY;
+
 // A faithful slice of the report zaproxy/action-baseline writes to
 // report_json.json: an array of sites, each carrying an `alerts` array.
 const REPORT = [
@@ -110,4 +118,15 @@ test('main fails the gate on any WARN-level finding and passes on INFO only', ()
 	const empty = path.join(dir, 'report_json.json');
 	fs.writeFileSync(empty, JSON.stringify([{ alerts: [] }]));
 	assert.equal(main(empty), 0, 'a clean report passes');
+
+	// The step-summary branch, exercised against a temp file so a real CI job
+	// summary is never written to (BUG-2026-0008).
+	const summary = path.join(dir, 'summary.md');
+	process.env.GITHUB_STEP_SUMMARY = summary;
+	assert.equal(main(empty), 0, 'clean report still passes with a summary target');
+	delete process.env.GITHUB_STEP_SUMMARY;
+	const md = fs.readFileSync(summary, 'utf8');
+	assert.match(md, /## ZAP baseline policy/);
+	assert.match(md, /blocking findings: \*\*0\*\*/);
+	assert.match(md, /_No findings — the policy is satisfied\._/);
 });
