@@ -13,11 +13,17 @@
 
 ## 1 · Open incidents
 
+_No open incidents — every registered defect is fixed and verified in CI._
+
+---
+
+## 2 · Closed incidents
+
 ### BUG-2026-0008 — the unit tests published fixture "ZAP findings" into a real CI job summary
 
 | field | value |
 | --- | --- |
-| status | 🔻 **OPEN — fix landed, verification pending** — the spec now unsets `GITHUB_STEP_SUMMARY` (and points it at a temp file for its own assertion); waiting on the Darwaza 1 run |
+| status | ✅ **CLOSED** — 2026-10-07. **CI verified:** Darwaza 1 run **37635264050** on `b34dc43` (push) → status **Success**, job summary contains no *ZAP baseline policy* table |
 | severity | **medium** — fake scan output rendered on a real CI surface, right next to real gate results |
 | area | `test/zap-policy.test.js` → `main()` summary branch |
 | introduced | BUG-2026-0006's fix (the policy evaluator + its 6 specs) |
@@ -47,12 +53,12 @@ actual job summary.
   `blocking findings: **0**`, the no-findings line). Spec count unchanged
   (**19/19**).
 
-**Verification:** pending the next Darwaza 1 run — its job summary must
-contain no fixture tables.
+**Verification:** CI — Darwaza 1 run **37635264050** (push, `b34dc43`):
+status **Success** in 30s, and its job summary shows only the *Docker
+Build summary* — the fixture *ZAP baseline policy* tables are gone while
+the specs still pass (the local gate logged 19/19 in the same commit).
 
 ---
-
-## 2 · Closed incidents
 
 ### BUG-2026-0007 — Darwaza 1's commitlint job could never lint a single commit
 

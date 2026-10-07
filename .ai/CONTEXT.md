@@ -274,7 +274,13 @@ Detail: [`SECURITY.md`](SECURITY.md) · disclosure process: [`../docs/SECURITY.m
 **Current open items:** see `TODO.md` § "In progress".
 **Known closed incidents:** `BUG-2026-0001` (save toast / silent no-op save),
 `BUG-2026-0002` (stale server process serving old build), `BUG-2026-0003`
-(9 e2e failures — three test defects, not product defects).
+(9 e2e failures — three test defects, not product defects), `BUG-2026-0004`
+(Release workflow failing on every push; Monitor could not deploy),
+`BUG-2026-0005` (release-please's `chore(main): …` title), `BUG-2026-0006`
+(Darwaza 2's DAST job not enforcing its policy), `BUG-2026-0007`
+(commitlint job dying before it linted) and `BUG-2026-0008` (fixture ZAP
+tables in CI job summaries) — §1 is empty and every recent entry carries CI
+run ids as evidence.
 
 ---
 

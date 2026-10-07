@@ -84,8 +84,8 @@ Bug report below. Follow .ai/BUGS.md §3 triage, in order.
   pnpm run e2e           # required when the fix touches public/, routes or headers
 
 ## Step 6 — log the incident in .ai/BUGS.md
-- NEXT FREE ID: **BUG-2026-0003** (register currently ends at BUG-2026-0002,
-  both closed). Re-check §1/§2 of .ai/BUGS.md at execution time and use the
+- NEXT FREE ID: **BUG-2026-0009** (register currently ends at BUG-2026-0008,
+  all closed). Re-check §1/§2 of .ai/BUGS.md at execution time and use the
   next free id; assign it the moment the incident is REPRODUCED, not when it is
   fixed (BUGS.md §4).
 - If the id is already taken by the time you write, increment — never reuse.
