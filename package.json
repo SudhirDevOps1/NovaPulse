@@ -1,6 +1,6 @@
 {
 	"name": "novapulse",
-	"version": "2026.1.1",
+	"version": "2026.1.2",
 	"description": "NovaPulse 2026 — Next-Gen Autonomous GitOps Uptime & Telemetry Platform: percentile analytics, SSL/TCP checks, status pages, badges and alerts.",
 	"main": "server.js",
 	"private": true,
