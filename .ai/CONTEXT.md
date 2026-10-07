@@ -119,21 +119,34 @@ Commands below are the ones CI runs. Counts are **measured, not estimated**.
 ✔ unknown API routes return JSON 404
 ✔ sends hardened security headers
 ✔ stats and export endpoints report consistent shape
+✔ export → import preserves the probe method (merge and replace)
 ✔ advanced monitor fields validate and can be cleared
 ✔ fleet analytics endpoint reports a range summary
 ✔ status page is disabled by default
 ✔ settings can enable the status page and projection renders
 ✔ svg badges render for the fleet
+✔ ALLOW_ORIGIN honours a comma-separated list of origins
 ✔ probe helpers parse status specs and tcp targets
+✔ a monitor missing every optional field is normalised on load
+✔ the normalised monitor takes history and answers the list API
+✔ a corrupt data file is quarantined instead of being overwritten
+✔ the boot warning names the quarantine path
+✔ monitors.json is replaced only by an explicit save
+✔ riskCode maps both riskcode strings and risk names to 0-3
+✔ collectAlerts walks the whole report and skips non-alerts
+✔ group deduplicates repeat findings and sorts by risk
+✔ renderSummary separates blocking findings from informational notices
+✔ main fails when the report is missing or malformed
+✔ main fails the gate on any WARN-level finding and passes on INFO only
 ```
 
 | metric | value |
 | --- | --- |
-| test files | **1** (`test/api.test.js`) |
-| test cases | **12** |
-| passing | **12** |
+| test files | **4** (`test/api.test.js` 14, `test/zap-policy.test.js` 6, `test/store-quarantine.test.js` 3, `test/store-normalise.test.js` 2) |
+| test cases | **25** |
+| passing | **25** |
 | failing / skipped / todo | **0 / 0 / 0** |
-| duration | ~1.7 s |
+| duration | **2028.7 ms** (`duration_ms`, 2026-10-07) |
 
 ### End-to-end — `pnpm run e2e` (`playwright test`)
 
