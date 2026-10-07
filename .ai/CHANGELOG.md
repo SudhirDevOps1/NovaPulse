@@ -13,6 +13,16 @@
 <!-- release-please-block -->
 <!-- release-please-unblock -->
 
+## [2026.1.1](https://github.com/SudhirDevOps1/NovaPulse/compare/v2026.1.0...v2026.1.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* **ci:** enforce Darwaza 2's ZAP policy against a report that exists ([34680fa](https://github.com/SudhirDevOps1/NovaPulse/commit/34680fa5b7a0285a7db63a843126c74a9b7a4f54))
+* **ci:** make release-please's title pass commitlint by dropping ${scope} ([1ce9378](https://github.com/SudhirDevOps1/NovaPulse/commit/1ce93782d231d54a599bd17da94a4f42f80b850a))
+* **ci:** unblock the release workflow and make the Pages deploy failure self-explanatory ([7e8ee37](https://github.com/SudhirDevOps1/NovaPulse/commit/7e8ee370eff7b0b5de91a0a5fe7d69d46166ca67))
+* wire up save notifications, honour comma-separated ALLOW_ORIGIN and finish the NovaPulse rebrand ([1ec66ac](https://github.com/SudhirDevOps1/NovaPulse/commit/1ec66ac762a16ad36b66c6988b5f4aead5854ef6))
+
 ## [2026.1.0](https://github.com/SudhirDevOps1/NovaPulse/compare/v2026.1.0...HEAD) (2026-10-07)
 
 ### ⚠ BREAKING CHANGES
