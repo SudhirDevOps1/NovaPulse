@@ -147,7 +147,7 @@ jobs:
             if ! printf '%s\n' "$(git log -1 --format=%B "$sha")" | npx --no -- commitlint; then
               fails=1
             fi
-          done <<< "$(git rev-list "$BASE_SHA..$HEAD_SHA")
+          done <<< "$(git rev-list "$BASE_SHA..$HEAD_SHA")"
           exit "$fails"
 
   # Single required check for branch protection — it only passes when every
