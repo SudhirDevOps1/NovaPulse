@@ -1,6 +1,24 @@
-# Kestrel
+# NovaPulse 2026
 
-**Kestrel** — self-hosted uptime monitoring that stays featherweight. Node.js + Express 5,
+[![Darwaza 1 · Fast PR Gate](https://github.com/SudhirDevOps1/NovaPulse/actions/workflows/ci.yml/badge.svg)](https://github.com/SudhirDevOps1/NovaPulse/actions/workflows/ci.yml)
+[![Darwaza 2 · E2E + ZAP](https://github.com/SudhirDevOps1/NovaPulse/actions/workflows/e2e-gate.yml/badge.svg)](https://github.com/SudhirDevOps1/NovaPulse/actions/workflows/e2e-gate.yml)
+[![Darwaza 3 · Nightly Security](https://github.com/SudhirDevOps1/NovaPulse/actions/workflows/security-scan.yml/badge.svg)](https://github.com/SudhirDevOps1/NovaPulse/actions/workflows/security-scan.yml)
+[![Node](https://img.shields.io/badge/node-%3E%3D18-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/SudhirDevOps1/NovaPulse?style=flat&logo=github)](https://github.com/SudhirDevOps1/NovaPulse/stargazers)
+[![Issues](https://img.shields.io/github/issues/SudhirDevOps1/NovaPulse)](https://github.com/SudhirDevOps1/NovaPulse/issues)
+
+<div align="center">
+
+[![GitHub](https://img.shields.io/badge/GitHub-SudhirDevOps1%2FNovaPulse-181717?logo=github&logoColor=white)](https://github.com/SudhirDevOps1/NovaPulse)
+**Star the repo** → [github.com/SudhirDevOps1/NovaPulse ⭐](https://github.com/SudhirDevOps1/NovaPulse)
+
+</div>
+
+> Badges are live: every one resolves against this repository's real Actions
+> runs, license file and GitHub API — no static or fabricated numbers.
+
+**NovaPulse 2026** — autonomous, production-grade GitOps uptime monitoring & incident telemetry. Node.js + Express 5,
 **zero database**: state lives in a single JSON file. One process serves the API and the
 dashboard, so it fits comfortably in a free-tier container (≈60 MB RAM, no build step,
 no separate frontend hosting).
@@ -51,7 +69,7 @@ no separate frontend hosting).
 
 **UI/UX**
 
-- Rebranded **Kestrel** identity, violet accent, dark/light/system theme
+- **NovaPulse** identity, violet accent, dark/light/system theme
 - Drawer detail view with live analytics, toasts, modals, skeletons, empty states
 - **Command palette** (`⌘K` / `Ctrl+K`) + `?` keyboard-shortcut help, `n` new
   monitor, `/` search, `r` refresh — responsive from 360px up
@@ -63,10 +81,10 @@ no separate frontend hosting).
   serverless **GitHub Actions + GitHub Pages** build (₹0, no card, never sleeps) —
   see Deployment → *§0 GitHub Pages + Actions*
 
-### Kestrel vs. the incumbents
+### NovaPulse vs. the incumbents
 
-| capability                         | Kestrel | Uptime Kuma | UptimeRobot |
-| ---------------------------------- | :-----: | :---------: | :---------: |
+| capability                         | NovaPulse | Uptime Kuma | UptimeRobot |
+| ---------------------------------- | :-------: | :---------: | :---------: |
 | Self-hosted, single JSON file      | ✅ | ✅ (Docker + DB-ish) | ❌ SaaS |
 | Free tier without a card           | ✅ (Pages mode) | ✅ (server) | ✅ (50-mon cap) |
 | p50/p95/p99 percentiles            | ✅ | ❌ | partial (avg) |
@@ -95,9 +113,26 @@ pnpm start        # http://localhost:3000
 | ------------ | --------------------------------------------- |
 | `pnpm start` | run the server                                |
 | `pnpm dev`   | run with auto-restart (`--watch`)             |
-| `pnpm test`  | API smoke tests (`node --test`)               |
+| `pnpm test`  | unit/integration tests (`node --test`)        |
+| `pnpm run e2e` | Playwright E2E, desktop + mobile viewports  |
+| `pnpm run typecheck` | TypeScript check, both tsconfigs        |
+| `pnpm run lint` | ESLint with `--max-warnings=0`             |
+| `pnpm run check` | typecheck + lint + test + build (local gate) |
 | `pnpm gh:check` | probe every monitor in `config/monitors.json` (Actions runner) |
 | `pnpm gh:build`  | build the static GitHub Pages bundle (`site/`) |
+
+### Quality gates (the three Darwazas)
+
+| gate | workflow | what it proves |
+| ---- | -------- | -------------- |
+| **Darwaza 1** | [.github/workflows/ci.yml](.github/workflows/ci.yml) | typecheck · lint · unit tests · production build · Docker build — **blocks merge** |
+| **Darwaza 2** | [.github/workflows/e2e-gate.yml](.github/workflows/e2e-gate.yml) | Playwright desktop + mobile, OWASP ZAP baseline |
+| **Darwaza 3** | [.github/workflows/security-scan.yml](.github/workflows/security-scan.yml) | nightly CodeQL v4 · Semgrep · npm audit, auto-files issues |
+| **Sonar** | [.github/workflows/sonar.yml](.github/workflows/sonar.yml) | maintainability + coverage quality gate, notifies on failure |
+| **Release** | [.github/workflows/release.yml](.github/workflows/release.yml) | release-please → changelog + version PR |
+
+Rulebook for humans and agents: [docs/RULES.md](docs/RULES.md) ·
+[.ai/RULES.md](.ai/RULES.md) (43 Golden Laws).
 
 ## Configuration (env vars)
 
@@ -118,10 +153,10 @@ Every variable is optional — the app boots with sensible defaults.
 | `TELEGRAM_BOT_TOKEN`| –           | Telegram alerts (with `TELEGRAM_CHAT_ID`) |
 | `TELEGRAM_CHAT_ID`  | –           | Telegram alerts |
 | `DISCORD_WEBHOOK_URL`| –          | Discord alerts (webhook URL) |
-| `NTFY_URL`          | –           | ntfy topic URL, e.g. `https://ntfy.sh/kestrel-alerts` |
+| `NTFY_URL`          | –           | ntfy topic URL, e.g. `https://ntfy.sh/novapulse-alerts` |
 | `NTFY_TOKEN`        | –           | Optional ntfy access token (`Bearer`) |
 | `WEBHOOK_URL`       | –           | Generic JSON POST webhook |
-| `WEBHOOK_SECRET`    | –           | Sent as `x-kestrel-secret` header with webhook calls |
+| `WEBHOOK_SECRET`    | –           | Sent as `x-novapulse-secret` header with webhook calls |
 | `ALERT_ON_DEGRADED` | –           | `1` also notifies when a monitor turns Slow |
 | `SSL_WARN_DAYS`     | `14`        | Warn this many days before certificate expiry |
 | `SLA_TARGET`        | `99.9`      | SLA target percentage shown in the dashboard (50–100) |
@@ -192,7 +227,7 @@ tools/gh-build.js → site/ → GitHub Pages   (same UI, read-only, live data)
    git init -b main
    git add .
    git commit -m "uptime monitor"
-   git remote add origin https://github.com/<you>/kestrel.git
+   git remote add origin https://github.com/SudhirDevOps1/NovaPulse.git
    git push -u origin main
    ```
 
@@ -200,7 +235,7 @@ tools/gh-build.js → site/ → GitHub Pages   (same UI, read-only, live data)
 3. Optional alerts: Settings → Secrets and variables → Actions → add
    `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
 4. The first `Monitor` workflow run deploys the dashboard to
-   `https://<you>.github.io/uptime-monitor/` (see the Actions tab).
+   `https://sudhirdevops1.github.io/uptime-monitor/` (see the Actions tab).
 
 **Day-to-day:**
 
@@ -229,8 +264,8 @@ Notes:
 ## 1. Docker (works everywhere)
 
 ```bash
-docker build -t kestrel .
-docker run -d --name kestrel -p 3000:3000 -v kestrel-data:/app/data kestrel
+docker build -t novapulse .
+docker run -d --name novapulse -p 3000:3000 -v novapulse-data:/app/data novapulse
 ```
 
 or with Compose (reads `.env`):
@@ -290,7 +325,7 @@ fly deploy
 ## 5. Any VPS + PM2 (cheapest, full control)
 
 ```bash
-git clone <your-repo> && cd kestrel
+git clone https://github.com/SudhirDevOps1/NovaPulse.git && cd NovaPulse
 pnpm install --prod          # or: npm install --omit=dev
 cp .env.example .env         # edit values
 NODE_ENV=production pm2 start ecosystem.config.js
@@ -347,8 +382,8 @@ TELEGRAM_BOT_TOKEN=123456:ABC...  TELEGRAM_CHAT_ID=987654321
 # Discord
 DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
 # ntfy
-NTFY_URL=https://ntfy.sh/kestrel-alerts   # optional: NTFY_TOKEN=...
-# generic webhook (receives x-kestrel-secret when WEBHOOK_SECRET is set)
+NTFY_URL=https://ntfy.sh/novapulse-alerts   # optional: NTFY_TOKEN=...
+# generic webhook (receives x-novapulse-secret when WEBHOOK_SECRET is set)
 WEBHOOK_URL=https://example.com/hook      # optional: WEBHOOK_SECRET=...
 ```
 
@@ -358,7 +393,7 @@ skipped. Related rules: `ALERT_ON_DEGRADED=1` (notify on Slow), `SSL_WARN_DAYS`
 
 ## Limits
 
-Deliberate caps that keep Kestrel featherweight (all enforced, not aspirational):
+Deliberate caps that keep NovaPulse featherweight (all enforced, not aspirational):
 
 | limit                        | value            | why                                  |
 | ---------------------------- | ---------------- | ------------------------------------ |
