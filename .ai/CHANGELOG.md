@@ -82,6 +82,9 @@
   workflows self-diagnosing — Pages preflight with the exact UI path, a
   failure-time cause list for release-please
   ([BUG-2026-0004](BUGS.md))
+* **ci:** drop `${scope}` from the release PR title pattern so release-please
+  stops emitting `chore(main): …`, which commitlint rightly rejected
+  ([BUG-2026-0005](BUGS.md))
 * **ci:** ignore Playwright/ZAP/Sonar/coverage artefacts in `.gitignore`
 * **docs:** close the NOW-7 doc-drift sweep — `CONTEXT.md` re-derived (13
   specs / 6 workflows / 13 tests), `docs/` exists with `RULES`·`SECURITY`·

@@ -28,7 +28,7 @@
 | `packages["."].separate-pull-requests` | `false` | one grouped release PR |
 | `packages["."].extra-files` | `[{type: json, path: package.json, jsonpath: $.version}]` | keeps `package.json` `version` in step with the manifest |
 | `sequential-calls` | `false` | GitHub API calls are batched |
-| `group-pull-request-title-pattern` | `chore${scope}: release${component} ${version}` | the release PR title pattern |
+| `group-pull-request-title-pattern` | `chore: release${component} ${version}` | the release PR title **and** the release commit message. The old `chore${scope}…` form rendered `chore(main): release 2026.1.1`, which Darwaza 1's commitlint rejected (`main` is not in the scope enum) — dropping `${scope}` keeps the gate strict and the bot compliant |
 | `$schema` | `.../release-please/main/schemas/config.json` | the config is schema-validated; the schema is `additionalProperties: false`, so **only documented top-level keys are allowed** — an extra key fails the workflow (this actually happened with a `release-please.bootstrap-sha` block and was removed 2026-10-07) |
 
 Both files are edited **only by the bot**. Hand-editing them or the generated

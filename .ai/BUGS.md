@@ -19,11 +19,48 @@ _None. The register is clear._
 
 ## 2 · Closed incidents
 
+### BUG-2026-0005 — Darwaza 1 rejected the release-please PR (`chore(main): …`)
+
+| field | value |
+| --- | --- |
+| status | ✅ **CLOSED** — 2026-10-07 |
+| severity | **high** (the release PR could never pass the required `gate` check) |
+| area | `release-please-config.json` → `group-pull-request-title-pattern` |
+| introduced | the first release-please run that opened PR #1 |
+| rule produced | `.ai/RULES.md` → **L-31**/**L-33** (Conventional Commits, gates block merge) |
+
+**Symptom**
+> PR #1 `chore(main): release 2026.1.1` → job *Conventional commit lint*:
+> `scope must be one of [api, probe, store, …] [scope-enum]` — Darwaza 1's
+> `gate` job therefore failed on a PR the bot itself opened.
+
+**Root cause**
+
+The configured pattern `chore${scope}: release${component} ${version}` makes
+release-please substitute the *branch* into `${scope}`, producing
+`chore(main): release 2026.1.1`. `main` is not (and must not be) in the
+commitlint scope enum — the gate was behaving exactly as designed, the bot's
+message was wrong.
+
+**Fix**
+
+- Pattern dropped `${scope}`: `chore: release${component} ${version}` →
+  `chore: release 2026.1.1`.
+- Verified both strings against the real hook:
+  `chore(main): …` → **exit 1** (`scope-enum`), `chore: release 2026.1.1` →
+  **exit 0**.
+- `docs/RELEASE.md` config table records why the pattern is shapeless.
+
+**Verification:** release-please re-ran on push, retitled the open PR with
+the compliant message, and Darwaza 1's commitlint job passed on it.
+
+---
+
 ### BUG-2026-0004 — Release workflow failed on every push; Monitor could not deploy
 
 | field | value |
 | --- | --- |
-| status | 🔻 **PARTIALLY CLOSED** — 2026-10-07: both workflow faults fixed and pushed (`7e8ee37`); Monitor now fails at the new preflight (correct, actionable) and Release fails only on a **repository setting the operator must flip** (see Fix) |
+| status | ✅ **CLOSED** — 2026-10-07. Both repo toggles set (Pages source = GitHub Actions; "Allow GitHub Actions to create and approve pull requests" = on), failed jobs re-run: **Monitor ✅** (site live at `https://sudhirdevops1.github.io/NovaPulse/`, HTTP 200) and **Release ✅** (opened PR #1 `chore: release 2026.1.1`) |
 | severity | **high** (two of the four push-triggered workflows were permanently red) |
 | area | `release-please-config.json`, `.github/workflows/{monitor,release}.yml` |
 | introduced | first push of the pipeline (`2f6c76b`) |
