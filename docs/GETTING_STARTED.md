@@ -232,6 +232,10 @@ force pushes, no admin bypass, and these four checks must be green before merge
 `SonarQube scan + quality gate notification`. No approvals are required, so a
 solo maintainer can merge their own PR once it's green.
 
+> **Full operations manual** — every job name, every Settings screen and its
+> current value, where artifacts/summaries live, how to monitor runs:
+> [`docs/DEVELOPER_GUIDE.md`](DEVELOPER_GUIDE.md).
+
 **Release flow:** merge a PR containing a `feat:`/`fix:` → the Release workflow
 opens `chore: release <version>` → merge that → tag + GitHub Release are
 published automatically.
@@ -252,6 +256,7 @@ published automatically.
 | A red check you believe is stale | The PR snapshot used an older `main`. | **Actions → the run → Re-run failed jobs** (never weaken a gate to make it pass). |
 | Release PR title looks like `chore: release 2026.x.y` | That title is required — release-please parses it to build the tag. | Don't rename it. |
 | Where did my data go? | Everything is one JSON file. | Daemon mode: `data/monitors.json`. Mode A: `state` branch (`gh-state/` locally). Export any time: `GET /api/export`. |
+| A `monitors.json.corrupt-<ts>` file appeared next to the data | The file was unreadable at boot (truncated write, bad hand edit) — NovaPulse quarantined the bytes and started empty instead of overwriting them. | Repair the copy (`node -e "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'))" monitors.json.corrupt-…`), rename it to `monitors.json`, restart, then `GET /api/export` a backup. |
 | Monitor run says *«State unchanged»* | Probes ran, nothing flipped. | Normal — that's the healthy case. |
 
 Still stuck? Check the [bug register](../.ai/BUGS.md) (every incident has its
@@ -262,6 +267,8 @@ symptom, root cause, fix and the CI run that proved it) or open an issue.
 ## 8. Where to go next
 
 - [README](../README.md) — feature tour, comparison table, full REST API table
+- [docs/DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) — the six workflows, every
+  Settings screen and what it does, how to monitor a run
 - [CONTRIBUTING.md](../CONTRIBUTING.md) — how to get a PR merged here
 - [docs/SECURITY.md](SECURITY.md) — threat model & private disclosure
 - [docs/RELEASE.md](RELEASE.md) — how versioning and the release PR work

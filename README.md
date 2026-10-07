@@ -27,6 +27,7 @@
 
 🌐 **[Live Status Page](https://sudhirdevops1.github.io/NovaPulse/status.html)** • 
 📘 **[Getting Started](docs/GETTING_STARTED.md)** • 
+🛠️ **[Developer Guide](docs/DEVELOPER_GUIDE.md)** • 
 🤝 **[Contributing](CONTRIBUTING.md)** • 
 📐 **[Architecture Guide](.ai/ARCHITECTURE.md)** • 
 📜 **[Golden Laws](.ai/RULES.md)** • 

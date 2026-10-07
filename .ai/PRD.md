@@ -185,7 +185,7 @@ trails, multi-tenant SaaS, and teams needing sub-second alerting — see §6.
 | --- | --- | --- |
 | NFR-A1 | Zero data loss on process crash: atomic tmp+rename | `store.flush` (**L-35**) |
 | NFR-A2 | Restart preserves state from the last flush; shutdown flushes synchronously | `SIGINT`/`SIGTERM` handler |
-| NFR-A3 | Availability faults degrade, security faults halt (corrupt data file → warn + start empty; CSP/rate-limit/header failures are never skipped) | `ARCHITECTURE.md` §7, **L-09** |
+| NFR-A3 | Availability faults degrade, security faults halt (corrupt data file → quarantine the bytes to `monitors.json.corrupt-<ts>`, warn + start empty; CSP/rate-limit/header failures are never skipped) | `ARCHITECTURE.md` §7, **L-09** |
 | NFR-A4 | Single-writer only: `instances: 1`, one volume, isolated data dir per test harness | `ecosystem.config.js`, **L-39** |
 | NFR-A5 | Container health check answers without touching disk | `Dockerfile` → `/api/health` |
 | NFR-A6 | Unhandled rejection is logged and the process keeps serving; the checker loop is supervised per check | `server.js`, `lib/checker.js` |
@@ -246,7 +246,7 @@ trails, multi-tenant SaaS, and teams needing sub-second alerting — see §6.
 | --- | --- |
 | alert delivery | an outage produces a channel message within one `intervalSec` + probe timeout of the Nth failure |
 | gate coverage | every FR above has at least one automated test; today FR-6 (alert fan-out) and FR-13 rely on manual/CI verification |
-| restore fidelity | export → import round trip preserves every monitor field (today `method` is downgraded — [`DATABASE.md`](DATABASE.md) §8) |
+| restore fidelity | export → import round trip preserves every monitor field (incl. `method` since NOW-6 — [`DATABASE.md`](DATABASE.md) §8) |
 | red zero | no open `error`-severity CodeQL alert, no high/critical advisory, zero ZAP warning-level findings |
 
 ---

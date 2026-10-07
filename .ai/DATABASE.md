@@ -81,42 +81,48 @@ is same-filesystem and therefore atomic.
 | condition | code path | observable behaviour |
 | --- | --- | --- |
 | file missing (first boot) | `catch` with `error.code === 'ENOENT'` | starts empty, **no warning** (normal first run) |
-| file unparsable / unreadable (`EACCES`, truncated JSON…) | `catch`, non-ENOENT | `logger.warn('Could not read data file, starting empty', {error})` and state = empty |
-| file parses | normalised into `state` | monitors/incidents arrays coerced, settings merged over defaults |
+| file unparsable / unreadable (`EACCES`, truncated JSON…) | `catch`, non-ENOENT | the bytes are **copied to `monitors.json.corrupt-<ISO-ts>` first**, then `logger.warn('Could not read data file — quarantined and starting empty', {error, quarantine})` and state = empty |
+| file parses | each monitor passes through `normaliseMonitor()`, then arrays/settings coerced | missing `history`/`rollups`/`tags`/`status`/`intervalSec`/… filled with defaults (§8), settings merged over defaults |
 
 This is **fail-open on availability, by design** (`ARCHITECTURE.md` §7):
-availability problems degrade, security problems halt (**L-09**).
+availability problems degrade, security problems halt (**L-09**). Nothing is
+lost when it does: the quarantine copy is written *before* any state exists, and
+`load()` itself never writes `monitors.json`.
 
-**Measured consequence of a corrupt file** (reproduced on 2026-10-07, Node
-v24.19.0, with `UPTIME_DATA_DIR` pointed at a temp dir containing
+**Measured consequence of a corrupt file** (re-measured 2026-10-07 after the
+quarantine fix, Node v24.19.0, `UPTIME_DATA_DIR` = temp dir containing
 `{ this is not json`):
 
 ```
-after load   -> monitors: 0 | file bytes: { this is not json
-files in dir : monitors.json
-after create (+500 ms debounce) -> file parses: true | other files: (none — corrupt bytes gone)
+after load   -> monitors: 0 | files: monitors.json, monitors.json.corrupt-2026-10-07T14-55-49-041Z
+original bytes untouched: true
+after create (+700 ms)  -> files: monitors.json, monitors.json.corrupt-2026-10-07T14-55-49-041Z
+monitors.json parses: true
+quarantine copies: 1 | bytes preserved: true
 ```
 
 So, honestly:
 
-- the app **starts and serves an empty fleet** rather than refusing to boot;
-- the corrupt bytes are **not quarantined** — no `.bak`, no `.corrupt-<ts>`;
-  the first debounced flush (≤250 ms after the first mutation) renames over them
-  and they are gone;
-- recovery is therefore an **operator race**: `cp monitors.json
-  monitors.json.broken` *before* touching the UI, then restore from
-  [`/api/export`](#9--backup--restore) or a volume snapshot.
+- the app **starts and serves an empty fleet** rather than refusing to boot
+  (fail-open on availability, L-09);
+- the corrupt bytes are **quarantined**: `monitors.json.corrupt-<ISO-ts>` sits
+  next to the data file with the exact original contents, and the boot warning
+  names its path;
+- `load()` performs no write — `monitors.json` changes only when the operator
+  (or a later API mutation) triggers an explicit save.
 
 **Operator runbook for a suspect file:**
 
 1. Stop the process (writes stop; the last good flush already happened).
-2. Copy `monitors.json` aside — this is the only remaining copy of the data.
+2. The quarantine copy is already made at boot — if you stopped *before* the
+   boot, copy `monitors.json` aside yourself; it is still the only good copy.
 3. Attempt a repair on the copy (e.g. `node -e "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'))" copy.json`).
 4. Put the repaired file back, start, verify `GET /api/health` → `monitors` count.
 
-A quarantine-on-load behaviour (`rename` the unreadable file to
-`monitors.json.corrupt-<ts>` before starting empty) is tracked in
-[`TODO.md`](TODO.md) — it does **not** exist today (**L-02**).
+The quarantine-on-load behaviour is implemented in `lib/store.js`
+(`quarantineCorruptFile()`) and covered by `test/store-quarantine.test.js`
+(three specs: bytes preserved, warning names the path, file replaced only by an
+explicit save).
 
 ---
 
@@ -217,42 +223,50 @@ mechanisms do the job:
 
 | when | mechanism | guarantee |
 | --- | --- | --- |
-| boot (`load`) | top-level `monitors`/`incidents` coerced to arrays; `settings` merged over `DEFAULT_SETTINGS` (shallow, then `statusPage` again) | a file from an older build opens without a step |
+| boot (`load`) | each monitor passed through `normaliseMonitor()` (defaults for `history`/`rollups`/`tags`/`status`/`enabled`/`intervalSec`/`timeoutMs`/`method`/`type`); top-level `monitors`/`incidents` coerced to arrays; `settings` merged over `DEFAULT_SETTINGS` (shallow, then `statusPage` again) | a file from an older build **or a hand-edited file missing optional fields** opens without a step |
 | read paths | defensive guards: `rollupsOf()` → `[]`, `histogram()` → `monitor.history \|\| []`, `analytics.summary` tolerates empty | a *missing* optional array degrades to "no data", not a crash |
-| import (`importState`) | each source monitor rebuilt field-by-field from `OPTIONAL_FIELDS`; history/rollups/incidents sliced to caps; unknown ids generated | never grows state past the caps (**L-24**), never executes payload content |
+| import (`importState`) | each source monitor rebuilt field-by-field from `OPTIONAL_FIELDS`; `method` passed through `normaliseMethod()` against the shared `HTTP_METHODS` list; history/rollups/incidents sliced to caps; unknown ids generated | never grows state past the caps (**L-24**), never executes payload content, never silently changes the probe method |
 | settings patch | `pickStatusPage` allowlist — only `enabled`/`title`/`message` survive | unknown keys are dropped, not stored |
 
-**Honest gaps in the normalisation contract (verified, not assumed):**
+**Both previously documented gaps are now closed (measured, not assumed):**
 
-1. **Per-monitor fields are *not* normalised on load.** A hand-edited file whose
-   monitor lacks `history` makes the whole read surface fail. Measured with a
-   fixture containing `{id, name, url, …}` and no `history` key:
-
-   ```
-   GET /api/monitors      -> 500 {"error":"Internal server error"}
-   GET /api/monitors/m1   -> 500 {"error":"Internal server error"}
-   GET /api/stats         -> 500 {"error":"Internal server error"}
-   store.addHistory       -> threw: TypeError: Cannot read properties of undefined (reading 'push')
-   ```
-
-   So `uptime24h()` (`monitor.history.filter`) and `addHistory()` are the
-   unguarded call sites. The fix — normalise `history`/`rollups`/`status` in
-   `load()` — is in [`TODO.md`](TODO.md) (**L-36** is only partially met).
-2. **Import downgrades the HTTP method.** `importState` writes
-   `method: m.method === 'POST' ? 'POST' : 'GET'`, so a monitor exported with
-   `HEAD`/`PUT`/`PATCH`/`DELETE` comes back as `GET`. Measured round trip:
+1. **Per-monitor fields are normalised on load.** `load()` runs every monitor
+   through `normaliseMonitor()` before it enters state, so a hand-edited file
+   whose monitor lacks `history` no longer fails the whole read surface.
+   Measured with the same fixture (`{id, name, url}` and no `history` key):
 
    ```
-   exported method : HEAD
-   imported method : GET
-   imported fields : {"expectedStatus":"200-299","headers":{"authorization":"Bearer abc"},
-                      "tags":["prod"],"intervalSec":30,"historyLen":1,"rollupsLen":1,
-                      "status":"unknown","consecutiveFailures":0,"lastCheck":null}
+   normalised: {"history":[],"rollups":[],"tags":[],"status":"unknown","enabled":true,
+                "consecutiveFailures":0,"wasDown":false,"intervalSec":60,"timeoutMs":10000,
+                "method":"GET","type":"http"}
+   store.addHistory -> ok, history len: 1
+   GET /api/monitors        -> 200   (was 500)
+   GET /api/monitors/hand-1 -> 200   (was 500)
+   GET /api/stats           -> 200   (was 500)
    ```
 
-   `status`, `consecutiveFailures` and `lastCheck` are reset **by design** (the
-   new instance must re-probe); the method change is not — it is a silent
-   fidelity loss and is tracked in [`TODO.md`](TODO.md).
+   Covered by `test/store-normalise.test.js` (two specs).
+2. **Import preserves the HTTP method.** `importState` passes the value through
+   `normaliseMethod()` — the same `HTTP_METHODS` list `validateMonitor` uses
+   (single source of truth in `lib/store.js`, imported by `server.js`), so an
+   import can never carry a method the API would have rejected:
+
+   ```
+   GET    exported: GET    imported: GET    OK
+   HEAD   exported: HEAD   imported: HEAD   OK
+   POST   exported: POST   imported: POST   OK
+   PUT    exported: PUT    imported: PUT    OK
+   PATCH  exported: PATCH  imported: PATCH  OK
+   DELETE exported: DELETE imported: DELETE OK
+   garbage method TRACE -> GET
+   ```
+
+   Covered by `test/api.test.js` → *export → import preserves the probe method
+   (merge and replace)*.
+
+   `status`, `consecutiveFailures` and `lastCheck` are still reset **by design**
+   on import (the new instance must re-probe); only the method fidelity loss is
+   fixed.
 
 **Non-destructive rule (L-37):** no code path deletes user data. Shrinking,
 renaming or restructuring the stored state requires (a) an export-first backup

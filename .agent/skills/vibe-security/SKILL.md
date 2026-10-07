@@ -140,7 +140,7 @@ The store holds monitor URLs, check results and incidents only. Confirm the CSV 
 pnpm install --frozen-lockfile
 pnpm run typecheck     # tsc --noEmit + tsc --noEmit -p tsconfig.sw.json
 pnpm run lint          # eslint . --max-warnings=0
-pnpm test              # node --test — 19/19 expected
+pnpm test              # node --test — 25/25 expected
 pnpm run e2e           # Playwright desktop + mobile (Darwaza 2 locally)
 ```
 
