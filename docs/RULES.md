@@ -39,7 +39,7 @@ Full wording of each law: [`../.ai/RULES.md`](../.ai/RULES.md).
 | L-25 | process | the 7-step lifecycle (§3 below) |
 | **L-26 typecheck** | tooling | `pnpm run typecheck` → exit 0 (both `tsconfig.json`, `tsconfig.sw.json`) |
 | **L-27 lint** | tooling | `pnpm run lint` → `eslint . --max-warnings=0`, 0 warnings |
-| **L-28 tests** | tooling | `pnpm test` → `node --test`, 19/19 |
+| **L-28 tests** | tooling | `pnpm test` → `node --test`, 25/25 |
 | L-29, L-30 | review + lint | no `TODO`/`FIXME`/stubs/canned data; `no-console` etc. via `eslint.config.mjs` |
 | **L-31 commits** | hooks + CI | `.husky/commit-msg` → `commitlint`; `ci.yml` job `commitlint` |
 | L-32 | process | sync `.ai/` files every 3–4 changes and before releases |

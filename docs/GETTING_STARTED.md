@@ -252,6 +252,7 @@ published automatically.
 | A red check you believe is stale | The PR snapshot used an older `main`. | **Actions → the run → Re-run failed jobs** (never weaken a gate to make it pass). |
 | Release PR title looks like `chore: release 2026.x.y` | That title is required — release-please parses it to build the tag. | Don't rename it. |
 | Where did my data go? | Everything is one JSON file. | Daemon mode: `data/monitors.json`. Mode A: `state` branch (`gh-state/` locally). Export any time: `GET /api/export`. |
+| A `monitors.json.corrupt-<ts>` file appeared next to the data | The file was unreadable at boot (truncated write, bad hand edit) — NovaPulse quarantined the bytes and started empty instead of overwriting them. | Repair the copy (`node -e "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'))" monitors.json.corrupt-…`), rename it to `monitors.json`, restart, then `GET /api/export` a backup. |
 | Monitor run says *«State unchanged»* | Probes ran, nothing flipped. | Normal — that's the healthy case. |
 
 Still stuck? Check the [bug register](../.ai/BUGS.md) (every incident has its

@@ -35,35 +35,43 @@ incidents).
 Ordered by risk. Each item is small, self-contained and has a test as its
 definition of done.
 
-### NOW-1 · Normalise monitor fields on load (missing `history` breaks the API)
+### NOW-1 · Normalise monitor fields on load (missing `history` breaks the API) — ✅ closed 2026-10-07
 
 - **Why:** a hand-edited or truncated `monitors.json` whose monitor lacks
-  `history` makes `GET /api/monitors`, `GET /api/monitors/:id` and
-  `GET /api/stats` answer **500**, and `store.addHistory` throws
+  `history` made `GET /api/monitors`, `GET /api/monitors/:id` and
+  `GET /api/stats` answer **500**, and `store.addHistory` threw
   `TypeError: Cannot read properties of undefined (reading 'push')` — measured,
-  see [`DATABASE.md`](DATABASE.md) §8. **L-36** is only partially met.
+  see [`DATABASE.md`](DATABASE.md) §8. **L-36** was only partially met.
 - **Acceptance criteria:**
-  - [ ] `load()` (or a `normaliseMonitor()` helper) defaults `history: []`,
+  - [x] `load()` (or a `normaliseMonitor()` helper) defaults `history: []`,
         `rollups: []`, `tags: []`, `status: 'unknown'`, `enabled: true`,
         `consecutiveFailures: 0`, `wasDown: false`, `intervalSec`, `timeoutMs`,
         `method` when absent — no throw, no 500.
-  - [ ] Unit test loads a fixture missing every optional field and asserts
+  - [x] Unit test loads a fixture missing every optional field and asserts
         `GET /api/monitors` → 200 and `addHistory` succeeds.
-  - [ ] Existing 19 tests stay green; `pnpm run typecheck` / `lint` exit 0.
+  - [x] Existing tests stay green; `pnpm run typecheck` / `lint` exit 0.
+- **Proof:** `lib/store.js` → `normaliseMonitor()` (called from `load()`),
+  `test/store-normalise.test.js` (2 specs), re-measured
+  `GET /api/monitors|/api/monitors/hand-1|/api/stats → 200`, suite now
+  `pnpm test` → **25/25**, `DATABASE.md` §4/§8 rewritten from fresh runs.
 
-### NOW-2 · Quarantine a corrupt state file instead of overwriting it
+### NOW-2 · Quarantine a corrupt state file instead of overwriting it — ✅ closed 2026-10-07
 
-- **Why:** today `load()` warns and starts empty, and the **first debounced
-  flush renames over the corrupt bytes** — measured, no backup is created
+- **Why:** `load()` used to warn and start empty, and the **first debounced
+  flush renamed over the corrupt bytes** — measured, no backup was created
   ([`DATABASE.md`](DATABASE.md) §4). Silent destruction of the only copy.
 - **Acceptance criteria:**
-  - [ ] On a non-ENOENT read failure, the file is copied/renamed to
+  - [x] On a non-ENOENT read failure, the file is copied/renamed to
         `monitors.json.corrupt-<ISO-ts>` before state can be written.
-  - [ ] The warning log names the quarantine path.
-  - [ ] Test: write invalid JSON → boot → assert quarantine file exists, the
+  - [x] The warning log names the quarantine path.
+  - [x] Test: write invalid JSON → boot → assert quarantine file exists, the
         app serves `monitors: 0`, and `monitors.json` is only replaced by an
         explicit save.
-  - [ ] [`DATABASE.md`](DATABASE.md) §4 updated in the same change (**L-32**).
+  - [x] [`DATABASE.md`](DATABASE.md) §4 updated in the same change (**L-32**).
+- **Proof:** `lib/store.js` → `quarantineCorruptFile()` (copy happens before
+  `state` exists; `load()` performs no write), `test/store-quarantine.test.js`
+  (3 specs: bytes preserved · warning names the path · replaced only on save),
+  re-measured boot trace in `DATABASE.md` §4.
 
 ### NOW-3 · `getRequiredEnv()` — fail closed on partial alert configuration
 
@@ -110,20 +118,25 @@ definition of done.
         byte-identical to today.
   - [ ] Overhead measured or argued (**L-05**).
 
-### NOW-6 · Fix the silent `method` downgrade on import
+### NOW-6 · Fix the silent `method` downgrade on import — ✅ closed 2026-10-07
 
-- **Why:** `importState` writes `method: m.method === 'POST' ? 'POST' : 'GET'`,
-  so an exported `HEAD`/`PUT`/`PATCH`/`DELETE` monitor returns from
+- **Why:** `importState` used to write `method: m.method === 'POST' ? 'POST' :
+  'GET'`, so an exported `HEAD`/`PUT`/`PATCH`/`DELETE` monitor returned from
   `POST /api/import` as `GET` — measured round trip in
   [`DATABASE.md`](DATABASE.md) §8. A backup that changes behaviour is not a
   backup.
 - **Acceptance criteria:**
-  - [ ] Import accepts the FR-1 method list (or passes the validated value
+  - [x] Import accepts the FR-1 method list (or passes the validated value
         through) with the same validation as `validateMonitor`.
-  - [ ] Round-trip test: create with `HEAD` → export → import (merge **and**
+  - [x] Round-trip test: create with `HEAD` → export → import (merge **and**
         replace) → method still `HEAD`.
-  - [ ] `status`, `consecutiveFailures`, `lastCheck` still reset to re-probe
+  - [x] `status`, `consecutiveFailures`, `lastCheck` still reset to re-probe
         (that part is by design).
+- **Proof:** `HTTP_METHODS` now lives in `lib/store.js` and is imported by
+  `server.js` (one list, both validators); `normaliseMethod()` used by
+  `create()` and `importState()`; `test/api.test.js` → *export → import
+  preserves the probe method (merge and replace)*; all six methods re-measured
+  round-tripping in `DATABASE.md` §8 (`garbage method TRACE -> GET`).
 
 ### NOW-7 · Document drift sweep (docs must not lie)
 
@@ -155,14 +168,15 @@ definition of done.
 
 ### NEXT-1 · Unit tests for the layers that currently have none
 
-- **Why:** `test/api.test.js` (13 tests) exercises HTTP end-to-end, but
-  `lib/store.js` atomicity/corruption, `lib/analytics.js` math,
-  `lib/limits.js` windows and `lib/notify.js` channel selection have no direct
-  tests — the ring-buffer caps and percentile math are only covered *indirectly*
-  or not at all.
+- **Why:** `test/api.test.js` (14 tests) exercises HTTP end-to-end, but
+  `lib/analytics.js` math, `lib/limits.js` windows and `lib/notify.js` channel
+  selection have no direct tests — the ring-buffer caps and percentile math are
+  only covered *indirectly* or not at all. (`lib/store.js` corruption and
+  missing-field handling **do** have direct tests since NOW-1/NOW-2:
+  `test/store-normalise.test.js`, `test/store-quarantine.test.js`.)
 - **Acceptance criteria:** one test file per lib module; caps (500/720/2400/500)
-  asserted by pushing past them; a corrupt-file test for NOW-2; `pnpm test`
-  still runs under `node --test` and stays under ~5 s.
+  asserted by pushing past them; `pnpm test` still runs under `node --test` and
+  stays under ~5 s.
 
 ### NEXT-2 · Stop shipping 500 history points in the list payload
 
@@ -198,9 +212,10 @@ definition of done.
 
 ### NEXT-5 · Put `pnpm test` in the local pre-commit gate
 
-- **Why:** `.husky/pre-commit` runs `typecheck` + `lint` only; the 19 tests take
-  ~1.4 s and would catch API regressions before the push (Darwaza 1 catches them
-  later, i.e. after the developer has context-switched).
+- **Why:** `.husky/pre-commit` runs `typecheck` + `lint` only; the 25 tests take
+  ~2.0 s (`Measure-Command { pnpm test }` → 2.01 s, 2026-10-07) and would catch
+  API regressions before the push (Darwaza 1 catches them later, i.e. after the
+  developer has context-switched).
 - **Acceptance criteria:** hook runs `typecheck → lint → test`; total hook time
   stays < 10 s on the reference machine; `commitlint` still enforces the scope
   enum; documented in `RULES.md`'s enforcement map (doc sync).

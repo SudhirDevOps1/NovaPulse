@@ -137,7 +137,7 @@ $ <command>
 | ---- | ------- | ------ |
 | typecheck | `pnpm run typecheck` | exit 0 |
 | lint | `pnpm run lint` | exit 0 |
-| unit/integration | `pnpm test` | 19/19 |
+| unit/integration | `pnpm test` | 25/25 |
 | e2e (if UI changed) | `pnpm run e2e` | <n>/<n> |
 
 ## 8 · Residual risk / trade-off (L-05)
