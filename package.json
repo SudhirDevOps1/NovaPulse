@@ -1,14 +1,46 @@
 {
-	"name": "kestrel",
-	"version": "3.0.0",
-	"description": "Kestrel — production-grade self-hosted uptime monitoring: percentile analytics, SSL/TCP checks, status pages, badges and alerts.",
+	"name": "novapulse",
+	"version": "2026.1.0",
+	"description": "NovaPulse 2026 — Next-Gen Autonomous GitOps Uptime & Telemetry Platform: percentile analytics, SSL/TCP checks, status pages, badges and alerts.",
 	"main": "server.js",
 	"private": true,
 	"packageManager": "pnpm@12.9.1",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/SudhirDevOps1/NovaPulse.git"
+	},
+	"homepage": "https://github.com/SudhirDevOps1/NovaPulse#readme",
+	"bugs": {
+		"url": "https://github.com/SudhirDevOps1/NovaPulse/issues"
+	},
+	"keywords": [
+		"uptime",
+		"monitoring",
+		"status-page",
+		"observability",
+		"incident-management",
+		"gitops",
+		"self-hosted",
+		"percentiles",
+		"ssl-check"
+	],
 	"scripts": {
 		"start": "node server.js",
 		"dev": "node --watch server.js",
 		"test": "node --test",
+		"test:coverage": "node --test --experimental-test-coverage",
+		"e2e": "playwright test",
+		"e2e:ui": "playwright test --ui",
+		"e2e:report": "playwright show-report",
+		"typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.sw.json",
+		"lint": "eslint . --max-warnings=0",
+		"lint:fix": "eslint . --fix",
+		"build": "node tools/gh-build.js",
+		"build:check": "node -e \"require('fs').accessSync('site/index.html')\"",
+		"check": "npm run typecheck && npm run lint && npm test && npm run build",
+		"prepare": "node tools/husky.js",
+		"hooks:install": "node tools/husky.js --force",
+		"commitlint": "commitlint --edit",
 		"gh:check": "node tools/gh-check.js",
 		"gh:build": "node tools/gh-build.js"
 	},
@@ -19,5 +51,16 @@
 	"dependencies": {
 		"compression": "^1.8.1",
 		"express": "^5.2.1"
+	},
+	"devDependencies": {
+		"@commitlint/cli": "^21.2.3",
+		"@commitlint/config-conventional": "^21.2.3",
+		"@eslint/js": "^10.0.1",
+		"@playwright/test": "^1.63.0",
+		"@types/node": "^26.6.4",
+		"eslint": "^10.12.0",
+		"globals": "^17.13.0",
+		"husky": "^9.1.7",
+		"typescript": "^7.0.2"
 	}
 }
