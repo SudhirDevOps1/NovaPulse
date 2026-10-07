@@ -104,6 +104,41 @@ test('stats and export endpoints report consistent shape', async () => {
 	assert.ok(exported.settings);
 });
 
+test('export → import preserves the probe method (merge and replace)', async () => {
+	// importState used to hard-code `m.method === 'POST' ? 'POST' : 'GET'`, so a
+	// restored backup silently downgraded HEAD/PUT/PATCH/DELETE (TODO NOW-6).
+	const created = await fetch(`${base}/api/monitors`, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ name: 'Headroom', url: 'https://example.com/', method: 'HEAD' }),
+	});
+	assert.equal(created.status, 201);
+	const createdBody = await created.json();
+	assert.equal(createdBody.method, 'HEAD');
+	assert.equal(typeof createdBody.id, 'string');
+
+	const backup = await (await fetch(`${base}/api/export`)).json();
+
+	try {
+		for (const mode of ['merge', 'replace']) {
+			const response = await fetch(`${base}/api/import?mode=${mode}`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify(backup),
+			});
+			assert.equal(response.status, 200, `${mode}: import accepted`);
+
+			const list = await (await fetch(`${base}/api/monitors`)).json();
+			const restored = list.find((monitor) => monitor.name === 'Headroom');
+			assert.ok(restored, `${mode}: monitor restored`);
+			assert.equal(restored.method, 'HEAD', `${mode}: method survives the round trip`);
+		}
+	} finally {
+		// Leave the store as we found it: later specs assume a fleet of zero.
+		await fetch(`${base}/api/monitors/${createdBody.id}`, { method: 'DELETE' });
+	}
+});
+
 test('advanced monitor fields validate and can be cleared', async () => {
 	// invalid expectedStatus is rejected
 	const badSpec = await fetch(`${base}/api/monitors`, {

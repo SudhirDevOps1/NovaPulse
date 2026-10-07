@@ -19,7 +19,9 @@ const HOST = process.env.HOST || '0.0.0.0';
 const startedAt = Date.now();
 const assetVersion = `${pkg.version}-${startedAt}`;
 
-const HTTP_METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'];
+// One list for the API validator and the store's import/create path, so a
+// restored backup can never carry a method the API would have rejected.
+const { HTTP_METHODS } = store;
 const STATUS_SPEC_RE = /^(\d{3}|\d{3}-\d{3})(\s*,\s*(\d{3}|\d{3}-\d{3}))*$/;
 
 /**
