@@ -6,7 +6,9 @@
 #                           branch (a single commit — the repo never grows).
 #  any run                → tools/gh-build.js rebuilds site/ from the fresh
 #                           state and deploys it to GitHub Pages.
-#  push (your edits)      → same build + deploy, so code changes go live too.
+#  push (site-affecting paths only) → same build + deploy. Docs, tests, lib or
+#                           server.js changes do NOT redeploy Pages; the
+#                           5-minute schedule above still refreshes the data.
 #
 # First-time setup: Settings → Pages → Source: "GitHub Actions", then add
 # TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID as repository secrets (optional).
@@ -16,6 +18,14 @@ name: Monitor
 on:
   push:
     branches: [main, master]
+    # Only paths that actually reach the deployed site. Doc/test/server pushes
+    # do NOT trigger a Pages redeploy (the 5-min schedule still refreshes data).
+    paths:
+      - "config/**"
+      - "public/**"
+      - "site/**"
+      - "tools/**"
+      - ".github/workflows/monitor.yml"
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
