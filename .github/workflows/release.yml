@@ -12,17 +12,18 @@
 #   * package.json `version`         — bumped by the `json` extra-file
 #   * a git tag + GitHub Release     — created when the release PR merges
 #
-# This workflow only opens/updates the release PR. It is intentionally
-# decoupled from Darwazas 1 and 2: the PR it opens is an ordinary PR, so it
-# still has to clear both gates before it can merge. Nothing is ever tagged
-# without a green CI.
+# This workflow only opens/updates the release PR — and only when you run it
+# yourself. It is intentionally decoupled from Darwazas 1 and 2: the PR it
+# opens is an ordinary PR, so it still has to clear both gates before it can
+# merge. Nothing is ever tagged without a green CI.
 # ═══════════════════════════════════════════════════════════════════════════
 
 name: Release (release-please v4)
 
+# MANUAL ONLY — no release PR, version bump, tag or GitHub Release is ever
+# created by pushing/merging to `main`. Run this workflow by hand (Actions →
+# Release → Run workflow) whenever you actually want to cut a release.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
