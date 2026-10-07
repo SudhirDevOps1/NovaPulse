@@ -232,6 +232,10 @@ force pushes, no admin bypass, and these four checks must be green before merge
 `SonarQube scan + quality gate notification`. No approvals are required, so a
 solo maintainer can merge their own PR once it's green.
 
+> **Full operations manual** — every job name, every Settings screen and its
+> current value, where artifacts/summaries live, how to monitor runs:
+> [`docs/DEVELOPER_GUIDE.md`](DEVELOPER_GUIDE.md).
+
 **Release flow:** merge a PR containing a `feat:`/`fix:` → the Release workflow
 opens `chore: release <version>` → merge that → tag + GitHub Release are
 published automatically.
@@ -263,6 +267,8 @@ symptom, root cause, fix and the CI run that proved it) or open an issue.
 ## 8. Where to go next
 
 - [README](../README.md) — feature tour, comparison table, full REST API table
+- [docs/DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) — the six workflows, every
+  Settings screen and what it does, how to monitor a run
 - [CONTRIBUTING.md](../CONTRIBUTING.md) — how to get a PR merged here
 - [docs/SECURITY.md](SECURITY.md) — threat model & private disclosure
 - [docs/RELEASE.md](RELEASE.md) — how versioning and the release PR work

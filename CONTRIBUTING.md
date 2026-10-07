@@ -2,8 +2,9 @@
 
 Thanks for helping. This document is the short path from "I have an idea" to
 "my PR is merged". The long-form user/deploy manual is
-[docs/GETTING_STARTED.md](docs/GETTING_STARTED.md); the binding engineering
-rules are [.ai/RULES.md](.ai/RULES.md).
+[docs/GETTING_STARTED.md](docs/GETTING_STARTED.md); the CI/Settings operations
+manual is [docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md); the binding
+engineering rules are [.ai/RULES.md](.ai/RULES.md).
 
 ---
 
