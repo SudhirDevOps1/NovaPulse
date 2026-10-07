@@ -134,7 +134,7 @@ const totals = (state.stats && state.stats.totals) || { up: 0, down: 0, degraded
 const fleetStatus = totals.down ? 'down' : totals.degraded ? 'degraded' : totals.up ? 'up' : 'unknown';
 fs.writeFileSync(
 	path.join(badgeDir, 'fleet.svg'),
-	badgeSvg({ name: 'kestrel', status: fleetStatus, uptime: fleet.ranges['30d'].uptime }),
+	badgeSvg({ name: 'novapulse', status: fleetStatus, uptime: fleet.ranges['30d'].uptime }),
 );
 for (const monitor of state.monitors || []) {
 	const storedMonitor = byId.get(monitor.id) || monitor;

@@ -148,15 +148,57 @@ export function escapeHtml(value) {
 
 const toastHost = () => document.getElementById('toasts');
 
+export function playChime(type = 'success') {
+	try {
+		if (localStorage.getItem('novapulse.sound') === 'off') return;
+		const AudioCtx =
+			window.AudioContext ||
+			/** @type {typeof AudioContext | undefined} */ (
+				/** @type {any} */ (window).webkitAudioContext
+			);
+		if (!AudioCtx) return;
+		const ctx = new AudioCtx();
+		const osc = ctx.createOscillator();
+		const gain = ctx.createGain();
+		osc.type = 'sine';
+		osc.connect(gain);
+		gain.connect(ctx.destination);
+		const freq = type === 'error' ? 240 : type === 'success' ? 587.33 : 440;
+		osc.frequency.setValueAtTime(freq, ctx.currentTime);
+		if (type === 'success') {
+			osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12);
+		}
+		gain.gain.setValueAtTime(0.08, ctx.currentTime);
+		gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
+		osc.start();
+		osc.stop(ctx.currentTime + 0.22);
+	} catch {
+		/* AudioContext policy */
+	}
+}
+
 export function toast(title, { type = 'info', description = '', timeout = 4200 } = {}) {
 	const host = toastHost();
 	if (!host) return;
+
+	playChime(type);
 
 	const closeBtn = h('button', { class: 'icon-btn', 'aria-label': 'Dismiss' }, [
 		h('span', { text: '×', class: 'mono' }),
 	]);
 
+	const iconMap = {
+		success: icon('checkCircle'),
+		error: icon('alert'),
+		warn: icon('alert'),
+		warning: icon('alert'),
+		info: icon('zap'),
+	};
+	const iconHtml = iconMap[type] || iconMap.info;
+	const iconNode = h('span', { class: 'toast-icon', html: iconHtml });
+
 	const node = h('div', { class: `toast ${type}` }, [
+		iconNode,
 		h('div', { class: 'toast-text' }, [
 			h('div', { class: 'toast-title', text: title }),
 			description ? h('div', { class: 'toast-desc', text: description }) : null,
@@ -166,11 +208,12 @@ export function toast(title, { type = 'info', description = '', timeout = 4200 }
 
 	const dismiss = () => {
 		node.classList.remove('show');
-		setTimeout(() => node.remove(), 300);
+		setTimeout(() => node.remove(), 260);
 	};
 
 	closeBtn.addEventListener('click', dismiss);
-	host.append(node);
+	host.prepend(node);
+	void node.offsetHeight; // Force browser layout flush so CSS transition always triggers
 	requestAnimationFrame(() => node.classList.add('show'));
 	if (timeout) setTimeout(dismiss, timeout);
 	return { dismiss };
@@ -226,7 +269,8 @@ function mountOverlay({ root, panel, onClose, closeOnBackdrop = true }) {
 			backdrop.remove();
 			panel.remove();
 		}, 260);
-		if (previouslyFocused?.focus && previouslyFocused.isConnected) previouslyFocused.focus();
+		const target = /** @type {(HTMLElement & {focus(): void}) | null} */ (previouslyFocused);
+		if (target?.focus && target.isConnected) target.focus();
 		onClose?.();
 	}
 
@@ -252,6 +296,11 @@ export function closeActiveOverlay() {
 
 /* ---------------- modal ---------------- */
 
+/**
+ * Modal dialog. `onClose` fires on both programmatic and user dismissal.
+ *
+ * @param {{title: any, body: any, footer?: any, onClose?: () => void, closeOnBackdrop?: boolean}} props
+ */
 export function openModal({ title, body, footer, onClose, closeOnBackdrop = true }) {
 	const root = document.getElementById('modal-root');
 	const closeBtn = h('button', {
@@ -283,7 +332,11 @@ export function openModal({ title, body, footer, onClose, closeOnBackdrop = true
 	return { close, panel };
 }
 
-/** Promise-based destructive-action confirmation. */
+/**
+ * Promise-based destructive-action confirmation. Resolves `true` on confirm.
+ *
+ * @param {{title?: string, message?: any, confirmLabel?: string, cancelLabel?: string, danger?: boolean}} [props]
+ */
 export function confirmDialog({
 	title,
 	message,

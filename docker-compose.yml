@@ -4,10 +4,10 @@
 #
 # Environment values are read from .env (see .env.example).
 services:
-  kestrel:
+  novapulse:
     build: .
-    image: kestrel:latest
-    container_name: kestrel
+    image: novapulse:latest
+    container_name: novapulse
     restart: unless-stopped
     ports:
       - "${PORT:-3000}:3000"

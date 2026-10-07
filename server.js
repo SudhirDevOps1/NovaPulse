@@ -22,6 +22,14 @@ const assetVersion = `${pkg.version}-${startedAt}`;
 const HTTP_METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'];
 const STATUS_SPEC_RE = /^(\d{3}|\d{3}-\d{3})(\s*,\s*(\d{3}|\d{3}-\d{3}))*$/;
 
+/**
+ * Validate + normalise an incoming monitor payload.
+ * `value` is a sparse patch object (only fields the caller supplied), which is
+ * why it is typed as a generic record rather than a fixed shape.
+ *
+ * @param {Record<string, any>} [body]
+ * @returns {{errors: string[], value: Record<string, any>}}
+ */
 function validateMonitor(body = {}) {
 	const errors = [];
 	const name = typeof body.name === 'string' ? body.name.trim() : '';
@@ -169,13 +177,27 @@ function securityHeaders(req, res, next) {
 	);
 	if (req.secure) res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
 
+	// ALLOW_ORIGIN accepts one origin or a comma-separated list; the response
+	// echoes only the caller's origin when it is on that list (a comma inside
+	// the header value would be rejected by browsers).
 	const allowOrigin = process.env.ALLOW_ORIGIN;
 	if (allowOrigin) {
-		res.setHeader('Access-Control-Allow-Origin', allowOrigin);
-		res.setHeader('Vary', 'Origin');
-		res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
-		res.setHeader('Access-Control-Allow-Headers', 'content-type');
-		if (req.method === 'OPTIONS') return res.status(204).end();
+		const allowed = allowOrigin.split(',').map((value) => value.trim()).filter(Boolean);
+		const origin = req.get('Origin');
+		const matched = allowed.includes('*')
+			? '*'
+			: origin
+				? (allowed.includes(origin) ? origin : null)
+				: allowed.length === 1
+					? allowed[0]
+					: null;
+		if (matched) {
+			res.setHeader('Access-Control-Allow-Origin', matched);
+			res.setHeader('Vary', 'Origin');
+			res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
+			res.setHeader('Access-Control-Allow-Headers', 'content-type');
+			if (req.method === 'OPTIONS') return res.status(204).end();
+		}
 	}
 	return next();
 }
@@ -337,7 +359,7 @@ function createApp() {
 			);
 		}
 		res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-		res.setHeader('Content-Disposition', `attachment; filename="kestrel-checks-${monitor.id}.csv"`);
+		res.setHeader('Content-Disposition', `attachment; filename="novapulse-checks-${monitor.id}.csv"`);
 		res.send(lines.join('\n'));
 	});
 
@@ -393,7 +415,7 @@ function createApp() {
 	});
 
 	app.get('/api/export', (req, res) => {
-		res.setHeader('Content-Disposition', `attachment; filename="kestrel-export-${Date.now()}.json"`);
+		res.setHeader('Content-Disposition', `attachment; filename="novapulse-export-${Date.now()}.json"`);
 		res.json(store.exportState());
 	});
 
@@ -495,7 +517,7 @@ const scheduler = createScheduler(store);
 if (require.main === module) {
 	const app = createApp();
 	const server = app.listen(PORT, HOST, () => {
-		logger.info(`Kestrel v${pkg.version} listening`, {
+		logger.info(`NovaPulse v${pkg.version} listening`, {
 			url: `http://localhost:${PORT}`,
 			node: process.version,
 			env: process.env.NODE_ENV || 'development',

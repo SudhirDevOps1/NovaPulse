@@ -7,9 +7,14 @@ const SOURCE = APP_MODE === 'static' ? 'data/status.json' : '/api/public/status'
 const REFRESH_MS = 60_000;
 
 function applyTheme() {
-	let mode = null;
+	let mode;
 	try {
-		mode = localStorage.getItem('kestrel.theme') || localStorage.getItem('pulse.theme');
+		// `novapulse.*` is what the dashboard writes today; the legacy keys are
+		// read-only migration fallbacks for preferences saved before the rename.
+		mode =
+			localStorage.getItem('novapulse.theme') ||
+			localStorage.getItem('kestrel.theme') ||
+			localStorage.getItem('pulse.theme');
 	} catch {
 		mode = null;
 	}
@@ -80,7 +85,7 @@ function incidentRow(incident) {
 }
 
 function render(data) {
-	document.title = `${data.title} · Kestrel`;
+	document.title = `${data.title} · NovaPulse`;
 	document.getElementById('status-title').textContent = data.title;
 
 	const message = document.getElementById('status-message');
@@ -154,8 +159,8 @@ async function refresh() {
 }
 
 applyTheme();
-document.getElementById('status-badge').src =
-	APP_MODE === 'static' ? 'badge/fleet.svg' : '/api/badge/fleet.svg';
+const statusBadge = /** @type {HTMLImageElement} */ (document.getElementById('status-badge'));
+statusBadge.src = APP_MODE === 'static' ? 'badge/fleet.svg' : '/api/badge/fleet.svg';
 refresh();
 setInterval(() => {
 	if (!document.hidden) refresh();

@@ -26,8 +26,8 @@ const state = {
 	search: '',
 	statusFilter: 'all',
 	incidentFilter: 'all',
-	themeMode: readStore('kestrel.theme', readStore('pulse.theme', 'dark')),
-	pollMs: Number(readStore('kestrel.poll', readStore('pulse.poll', '5000'))),
+	themeMode: readStore('novapulse.theme', readStore('kestrel.theme', 'dark')),
+	pollMs: Number(readStore('novapulse.poll', readStore('kestrel.poll', '5000'))),
 	selectedId: null,
 };
 
@@ -131,7 +131,7 @@ function applyTheme() {
 
 function setTheme(mode) {
 	state.themeMode = mode;
-	writeStore('kestrel.theme', mode);
+	writeStore('novapulse.theme', mode);
 	applyTheme();
 }
 
@@ -232,7 +232,7 @@ function startPolling() {
 
 function setPoll(ms) {
 	state.pollMs = ms;
-	writeStore('kestrel.poll', String(ms));
+	writeStore('novapulse.poll', String(ms));
 	startPolling();
 	toast(ms ? `Auto refresh: every ${ms / 1000}s` : 'Auto refresh paused', { type: 'info' });
 }
@@ -410,15 +410,16 @@ function routeFromHash() {
 	return VIEWS[hash] ? hash : 'overview';
 }
 
-function render({ soft = false } = {}) {
+function render() {
 	const view = document.getElementById('view');
 	const meta = VIEWS[state.route];
 
 	document.getElementById('page-title').textContent = meta.title;
 	document.getElementById('page-sub').textContent = meta.sub;
-	document.title = `${meta.title} · Kestrel`;
+	document.title = `${meta.title} · NovaPulse`;
 
-	document.querySelectorAll('[data-nav]').forEach((link) => {
+	document.querySelectorAll('[data-nav]').forEach((raw) => {
+		const link = /** @type {HTMLAnchorElement} */ (raw);
 		if (link.dataset.nav === state.route) link.setAttribute('aria-current', 'page');
 		else link.removeAttribute('aria-current');
 	});
@@ -483,7 +484,7 @@ function render({ soft = false } = {}) {
 
 	if (state.restoreSearchFocus) {
 		state.restoreSearchFocus = false;
-		const input = view.querySelector('.search input');
+		const input = /** @type {HTMLInputElement | null} */ (view.querySelector('.search input'));
 		if (input) {
 			input.focus();
 			input.setSelectionRange(input.value.length, input.value.length);
@@ -713,10 +714,50 @@ function wireChrome() {
 		toast(`Theme: ${next}`, { type: 'info', timeout: 1800 });
 	});
 
-	document.getElementById('refresh-btn').addEventListener('click', () => refresh());
+	document.getElementById('refresh-btn')?.addEventListener('click', () => refresh());
+
+	const neonBtn = document.getElementById('neon-toggle');
+	if (neonBtn) {
+		const isNeon = localStorage.getItem('novapulse.neon') === 'true';
+		if (isNeon) document.documentElement.dataset.neon = 'true';
+		neonBtn.classList.toggle('active', isNeon);
+		neonBtn.addEventListener('click', () => {
+			const active = document.documentElement.dataset.neon === 'true';
+			if (active) {
+				delete document.documentElement.dataset.neon;
+				localStorage.setItem('novapulse.neon', 'false');
+				neonBtn.classList.remove('active');
+				toast('Neon Cyber Glow: OFF', { type: 'info' });
+			} else {
+				document.documentElement.dataset.neon = 'true';
+				localStorage.setItem('novapulse.neon', 'true');
+				neonBtn.classList.add('active');
+				toast('Neon Cyber Glow: ON', { type: 'success', description: 'Futuristic telemetry highlights active' });
+			}
+		});
+	}
+
+	const soundBtn = document.getElementById('sound-toggle');
+	if (soundBtn) {
+		const soundOff = localStorage.getItem('novapulse.sound') === 'off';
+		soundBtn.classList.toggle('muted', soundOff);
+		soundBtn.addEventListener('click', () => {
+			const currentlyOff = localStorage.getItem('novapulse.sound') === 'off';
+			if (currentlyOff) {
+				localStorage.setItem('novapulse.sound', 'on');
+				soundBtn.classList.remove('muted');
+				toast('Sound Alerts: ON', { type: 'success' });
+			} else {
+				localStorage.setItem('novapulse.sound', 'off');
+				soundBtn.classList.add('muted');
+				toast('Sound Alerts: MUTED', { type: 'info' });
+			}
+		});
+	}
+
 	const newMonitorBtn = document.getElementById('new-monitor-btn');
-	if (isStatic) newMonitorBtn.remove();
-	else newMonitorBtn.addEventListener('click', () => ctx.openMonitorForm());
+	if (isStatic) newMonitorBtn?.remove();
+	else newMonitorBtn?.addEventListener('click', () => ctx.openMonitorForm());
 
 	const sidebar = document.getElementById('sidebar');
 	const menuBtn = document.getElementById('menu-btn');
@@ -726,7 +767,8 @@ function wireChrome() {
 	});
 	document.addEventListener('click', (event) => {
 		if (!sidebar.classList.contains('open')) return;
-		if (sidebar.contains(event.target) || menuBtn.contains(event.target)) return;
+		const target = /** @type {Node | null} */ (event.target);
+		if (sidebar.contains(target) || menuBtn.contains(target)) return;
 		sidebar.classList.remove('open');
 		menuBtn.setAttribute('aria-expanded', 'false');
 	});
@@ -757,7 +799,10 @@ function wireChrome() {
 		} else if (event.key === '/') {
 			event.preventDefault();
 			if (state.route !== 'monitors') location.hash = '#/monitors';
-			setTimeout(() => document.querySelector('.search input')?.focus(), 60);
+			setTimeout(() => {
+				const search = /** @type {HTMLInputElement | null} */ (document.querySelector('.search input'));
+				search?.focus();
+			}, 60);
 		} else if (event.key === 'r' || event.key === 'R') {
 			event.preventDefault();
 			refresh();
@@ -769,6 +814,7 @@ function wireChrome() {
 
 	window.addEventListener('hashchange', () => {
 		// Route changes always dismiss an open drawer/modal (nav "back").
+		clearSelected();
 		closeActiveOverlay();
 		state.route = routeFromHash();
 		render();

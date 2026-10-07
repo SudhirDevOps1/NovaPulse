@@ -22,6 +22,9 @@ import {
 
 const RANGE_LABELS = { '24h': 'last 24 hours', '7d': 'last 7 days', '30d': 'last 30 days' };
 
+/** Monotonic id seed so every modal form gets a unique, non-colliding id. */
+let formSeq = 0;
+
 /* ---------------- shared bits ---------------- */
 
 export function tile({ label, value, sub, tone = '', glyph = '' }) {
@@ -33,6 +36,9 @@ export function tile({ label, value, sub, tone = '', glyph = '' }) {
 	]);
 }
 
+/**
+ * @param {{title: any, hint?: any, actions?: any, body: any}} props
+ */
 function sectionCard({ title, hint, actions, body }) {
 	return h('section', { class: 'card' }, [
 		h('div', { class: 'card-head' }, [
@@ -46,6 +52,9 @@ function sectionCard({ title, hint, actions, body }) {
 	]);
 }
 
+/**
+ * @param {{glyph?: any, title: any, message: any, action?: any}} props
+ */
 function emptyState({ glyph = 'inbox', title, message, action }) {
 	return h('div', { class: 'empty' }, [
 		h('div', { class: 'glyph' }, [iconEl(glyph, 'icon icon-lg')]),
@@ -61,14 +70,14 @@ export function renderOverview({ stats, monitors, incidents, ctx, analytics }) {
 	if (!monitors.length && stats.totals.monitors === 0) {
 		return h('div', {}, [
 			sectionCard({
-				title: 'Welcome to Kestrel',
+				title: 'Welcome to NovaPulse 2026',
 				hint: 'Start monitoring in under a minute',
 				body: emptyState({
 					glyph: 'pulse',
 					title: 'No monitors yet',
 					message: ctx.readOnly
 						? 'Add endpoints to config/monitors.json in the repository and commit — the next check run picks them up automatically.'
-						: 'Add your first endpoint — an API, a website, a health check — and Kestrel will poll it on your schedule.',
+						: 'Add your first endpoint — an API, a website, a health check — and NovaPulse will poll it on your schedule.',
 					action: ctx.readOnly
 						? null
 						: h('button', {
@@ -630,6 +639,11 @@ function cell(label, value) {
 
 /* ---------------- monitor form ---------------- */
 
+/**
+ * Create/edit monitor dialog. `monitor` is omitted for the create flow.
+ *
+ * @param {{monitor?: any, onSubmit: (payload: any, monitor?: any) => Promise<any>}} props
+ */
 export function openMonitorForm({ monitor, onSubmit }) {
 	const editing = Boolean(monitor);
 	const inferredType =
@@ -711,7 +725,12 @@ export function openMonitorForm({ monitor, onSubmit }) {
 		urlError.textContent = '';
 	});
 
-	const form = h('form', { class: 'form-grid', novalidate: true }, [
+	// The submit button lives in the modal footer (a sibling of the <form>), so
+	// the form must be addressed explicitly: without an id + matching [form]
+	// attribute the button is not associated with the form, clicking it never
+	// fires `submit`, and the save silently does nothing.
+	const formId = `monitor-form-${++formSeq}`;
+	const form = h('form', { class: 'form-grid', novalidate: true, id: formId }, [
 		h('label', { class: 'field span-2' }, [h('span', { text: 'Name' }), nameInput, nameError]),
 		h('label', { class: 'field' }, [h('span', { text: 'Check type' }), typeSelect]),
 		h('label', { class: 'field' }, [h('span', { text: 'Method' }), methodSelect]),
@@ -784,6 +803,9 @@ export function openMonitorForm({ monitor, onSubmit }) {
 	const saveBtn = h('button', {
 		class: 'btn btn-primary',
 		type: 'submit',
+		// The button sits in .modal-foot, outside the <form>. The [form] id
+		// reference is what actually associates it — see the note at the form.
+		form: formId,
 		text: editing ? 'Save changes' : 'Create monitor',
 	});
 
@@ -896,7 +918,8 @@ export function openMonitorForm({ monitor, onSubmit }) {
 		saveBtn.textContent = 'Saving…';
 		try {
 			await onSubmit(payload, monitor);
-			modal.close();
+			saveBtn.textContent = '✓ Saved!';
+			setTimeout(() => modal.close(), 180);
 		} catch (error) {
 			toast('Could not save monitor', { type: 'error', description: error.message });
 			saveBtn.disabled = false;
@@ -1026,7 +1049,7 @@ export function renderSettings({ state, ctx, health }) {
 					onclick: async () => {
 						try {
 							const data = await api.exportData();
-							downloadJSON(`kestrel-${new Date().toISOString().slice(0, 10)}.json`, data);
+							downloadJSON(`novapulse-${new Date().toISOString().slice(0, 10)}.json`, data);
 							toast('Backup downloaded', { type: 'success' });
 						} catch (error) {
 							toast('Export failed', { type: 'error', description: error.message });
@@ -1075,7 +1098,7 @@ export function renderSettings({ state, ctx, health }) {
 	const statusUrl = api.statusPageUrl();
 	const statusHref = new URL(statusUrl, location.href).href;
 	const badgeHref = new URL(api.badgeUrl('fleet'), location.href).href;
-	const badgeMarkdown = `![Kestrel status](${badgeHref})`;
+	const badgeMarkdown = `![NovaPulse status](${badgeHref})`;
 
 	const copyRow = (label, text, buttonLabel) =>
 		h('div', { class: 'setting-row' }, [
@@ -1124,15 +1147,19 @@ export function renderSettings({ state, ctx, health }) {
 						const saveBtn = h('button', { class: 'btn btn-sm btn-primary', text: 'Save status page' });
 						saveBtn.addEventListener('click', async () => {
 							saveBtn.disabled = true;
+							saveBtn.textContent = 'Saving…';
 							try {
 								await ctx.saveStatusPage({
 									enabled: enableInput.checked,
 									title: titleInput.value.trim().slice(0, 80),
 									message: messageInput.value.trim().slice(0, 300),
 								});
-								toast('Status page updated', { type: 'success' });
+								saveBtn.textContent = '✓ Saved!';
+								toast('Status page updated', { type: 'success', description: 'Settings have been applied successfully' });
+								setTimeout(() => { saveBtn.textContent = 'Save status page'; }, 1500);
 							} catch (error) {
 								toast('Could not save', { type: 'error', description: error.message });
+								saveBtn.textContent = 'Save status page';
 							} finally {
 								saveBtn.disabled = false;
 							}

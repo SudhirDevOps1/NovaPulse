@@ -1,5 +1,5 @@
 /* ============================================================
-   Kestrel — Uptime Monitoring design system
+   NovaPulse 2026 — Autonomous GitOps Telemetry design system
    Tokens → primitives → components → layout → responsive
    ============================================================ */
 
@@ -38,9 +38,48 @@
 	--warn-soft: rgba(245, 158, 11, 0.14);
 	--idle: #64748b;
 	--idle-soft: rgba(100, 116, 139, 0.16);
-	--brand: #8b5cf6;
-	--brand-strong: #6d28d9;
+	--brand: #06b6d4;
+	--brand-strong: #0891b2;
 	--brand-ink: #ffffff;
+}
+
+/* ---- Neon Cyber Mode (Optional toggle) ---- */
+:root[data-neon="true"] {
+	--brand: #06b6d4;
+	--brand-strong: #0284c7;
+	--up: #10f09a;
+	--down: #ff3366;
+	--warn: #ffb800;
+	--line: #1c325c;
+}
+
+:root[data-neon="true"] .brand-mark {
+	box-shadow: 0 0 25px rgba(6, 182, 212, 0.6), inset 0 0 12px rgba(6, 182, 212, 0.4);
+}
+
+:root[data-neon="true"] .card {
+	border-color: rgba(6, 182, 212, 0.25);
+	box-shadow: 0 8px 32px -8px rgba(0, 0, 0, 0.8), 0 0 16px -6px rgba(6, 182, 212, 0.18);
+}
+
+:root[data-neon="true"] .status.status-up {
+	box-shadow: 0 0 14px rgba(16, 240, 154, 0.4);
+}
+
+:root[data-neon="true"] .status.status-down {
+	box-shadow: 0 0 14px rgba(255, 51, 102, 0.45);
+}
+
+:root[data-neon="true"] .status.status-degraded {
+	box-shadow: 0 0 14px rgba(255, 184, 0, 0.4);
+}
+
+:root[data-neon="true"] .btn-primary {
+	box-shadow: 0 0 20px -3px rgba(6, 182, 212, 0.55);
+}
+
+:root[data-neon="true"] .chart .line {
+	filter: drop-shadow(0 0 6px var(--brand));
 }
 
 :root,
@@ -696,6 +735,61 @@ select {
 	align-items: center;
 	justify-content: space-between;
 	gap: var(--sp-2);
+}
+
+/* GitHub link in the sidebar footer + topbar icon button (both are <a>). */
+.gh-row {
+	display: block;
+}
+
+a.gh-link {
+	display: flex;
+	align-items: center;
+	gap: var(--sp-2);
+	padding: var(--sp-2) var(--sp-3);
+	border: 1px solid var(--line);
+	border-radius: var(--r-sm);
+	background: var(--surface-2);
+	color: var(--text-2);
+	text-decoration: none;
+	font-size: 0.78rem;
+	line-height: 1.2;
+	transition:
+		background var(--t-fast) var(--ease),
+		color var(--t-fast) var(--ease),
+		border-color var(--t-fast) var(--ease);
+}
+
+a.gh-link:hover {
+	background: var(--surface-3);
+	border-color: var(--accent);
+	color: var(--text);
+}
+
+a.gh-link .gh-text {
+	font-weight: 600;
+	color: var(--text);
+}
+
+a.gh-link .gh-sub {
+	display: block;
+	margin-top: 2px;
+	font-size: 0.68rem;
+	color: var(--muted);
+	font-family: var(--font-mono);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+a.icon-btn {
+	text-decoration: none;
+}
+
+a.icon-btn:focus-visible,
+a.gh-link:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
 }
 
 .version {
@@ -1389,13 +1483,13 @@ tr:focus-within .row-actions {
 
 .toasts {
 	position: fixed;
+	top: var(--sp-4);
 	right: var(--sp-4);
-	bottom: var(--sp-4);
-	z-index: 80;
+	z-index: 9999;
 	display: flex;
 	flex-direction: column;
 	gap: var(--sp-2);
-	max-width: min(380px, calc(100vw - 2rem));
+	max-width: min(420px, calc(100vw - 2rem));
 	pointer-events: none;
 }
 
@@ -1404,17 +1498,17 @@ tr:focus-within .row-actions {
 	align-items: flex-start;
 	gap: var(--sp-3);
 	padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4);
-	border-radius: var(--r-sm);
+	border-radius: var(--r-md, 10px);
 	background: var(--surface);
 	border: 1px solid var(--line);
-	box-shadow: var(--shadow-lg);
-	font-size: 0.86rem;
+	box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.45);
+	font-size: 0.88rem;
 	pointer-events: auto;
-	transform: translateX(120%);
+	transform: translateY(-16px) scale(0.95);
 	opacity: 0;
 	transition:
-		transform var(--t-slow) var(--ease),
-		opacity var(--t-slow) var(--ease);
+		transform var(--t-fast) cubic-bezier(0.16, 1, 0.3, 1),
+		opacity var(--t-fast) var(--ease);
 	position: relative;
 	overflow: hidden;
 }
@@ -1430,20 +1524,58 @@ tr:focus-within .row-actions {
 	left: 0;
 	top: 0;
 	bottom: 0;
-	width: 3px;
+	width: 4px;
 	background: var(--brand);
 }
 
+.toast.success {
+	border-color: color-mix(in srgb, var(--up) 35%, var(--line));
+	box-shadow: 0 12px 28px -4px rgba(16, 185, 129, 0.25);
+}
 .toast.success::before {
 	background: var(--up);
 }
+.toast.success .toast-icon {
+	color: var(--up);
+}
 
+.toast.error {
+	border-color: color-mix(in srgb, var(--down) 35%, var(--line));
+	box-shadow: 0 12px 28px -4px rgba(239, 68, 68, 0.25);
+}
 .toast.error::before {
 	background: var(--down);
 }
+.toast.error .toast-icon {
+	color: var(--down);
+}
 
-.toast.warning::before {
+.toast.warning,
+.toast.warn {
+	border-color: color-mix(in srgb, var(--warn) 35%, var(--line));
+	box-shadow: 0 12px 28px -4px rgba(245, 158, 11, 0.25);
+}
+.toast.warning::before,
+.toast.warn::before {
 	background: var(--warn);
+}
+.toast.warning .toast-icon,
+.toast.warn .toast-icon {
+	color: var(--warn);
+}
+
+.toast.info .toast-icon {
+	color: var(--brand);
+}
+
+.toast-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	flex-shrink: 0;
+	margin-top: 1px;
 }
 
 .toast .toast-text {
@@ -1452,11 +1584,14 @@ tr:focus-within .row-actions {
 
 .toast .toast-title {
 	font-weight: 650;
+	letter-spacing: -0.01em;
 }
 
 .toast .toast-desc {
 	color: var(--muted);
-	font-size: 0.8rem;
+	font-size: 0.82rem;
+	margin-top: 2px;
+	line-height: 1.35;
 }
 
 .toast .icon-btn {
@@ -1787,7 +1922,7 @@ tr:focus-within .row-actions {
 }
 
 /* ============================================================
-   Kestrel 3.0 — analytics, motion, palette, status page
+   NovaPulse 2026.2 — analytics, motion, palette, status page
    ============================================================ */
 
 /* ---- entrance motion (fires on route change only) ---- */

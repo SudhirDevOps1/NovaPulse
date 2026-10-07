@@ -6,10 +6,10 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
-    <title>Kestrel — Uptime Monitoring</title>
+    <title>NovaPulse 2026 — Autonomous GitOps Telemetry</title>
     <meta
       name="description"
-      content="Kestrel — self-hosted uptime monitoring with percentile analytics, SSL checks, status pages and alerts."
+      content="NovaPulse 2026 — autonomous self-hosted uptime monitoring with percentile analytics, SSL checks, status pages and alerts."
     />
     <meta
       name="theme-color"
@@ -33,20 +33,20 @@
       <aside class="sidebar" id="sidebar" aria-label="Primary navigation">
         <a class="brand" href="#/overview">
           <span class="brand-mark">
-            <svg class="icon icon-lg" viewBox="0 0 64 64" aria-hidden="true">
+            <svg class="icon icon-lg" viewBox="0 0 24 24" aria-hidden="true">
               <path
-                d="M32 8 16 26 4 34l16 0 8-4 4 14 4-14 8 4 16 0-12-8Z"
+                d="M3 12h4l3 8 4-16 3 8h4"
                 fill="none"
                 stroke="currentColor"
-                stroke-width="4.5"
+                stroke-width="2.2"
                 stroke-linecap="round"
                 stroke-linejoin="round"
               />
             </svg>
           </span>
           <span class="brand-text">
-            Kestrel
-            <small>uptime watch</small>
+            NovaPulse
+            <small>GitOps Telemetry</small>
           </span>
         </a>
 
@@ -136,6 +136,26 @@
             <span class="dot"></span>
             <span id="api-label">connecting…</span>
           </div>
+          <div class="foot-row gh-row">
+            <a
+              class="gh-link"
+              href="https://github.com/SudhirDevOps1/NovaPulse"
+              target="_blank"
+              rel="noreferrer noopener"
+              title="NovaPulse on GitHub"
+            >
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M12 2.5a9.5 9.5 0 0 0-3 18.52c.48.09.65-.2.65-.46v-1.62c-2.66.58-3.22-1.28-3.22-1.28-.44-1.1-1.06-1.4-1.06-1.4-.87-.59.07-.58.07-.58.96.07 1.46.99 1.46.99.85 1.46 2.24 1.04 2.79.79.09-.62.33-1.04.6-1.28-2.12-.24-4.35-1.06-4.35-4.72 0-1.04.37-1.9.98-2.56-.1-.24-.42-1.2.09-2.51 0 0 .8-.26 2.62.98a9.1 9.1 0 0 1 4.78 0c1.82-1.24 2.62-.98 2.62-.98.51 1.31.19 2.27.1 2.51.61.66.97 1.52.97 2.56 0 3.67-2.23 4.48-4.36 4.72.34.3.65.88.65 1.78v2.63c0 .26.17.56.66.46A9.5 9.5 0 0 0 12 2.5Z"
+                  fill="currentColor"
+                />
+              </svg>
+              <span class="gh-label">
+                <span class="gh-text">Star on GitHub</span>
+                <span class="gh-sub">SudhirDevOps1/NovaPulse</span>
+              </span>
+            </a>
+          </div>
           <div class="foot-row">
             <button
               class="icon-btn bare"
@@ -189,6 +209,46 @@
 
           <div class="topbar-actions">
             <span class="refresh-info" id="last-updated">—</span>
+            <button class="icon-btn" id="sound-toggle" aria-label="Toggle sound alerts" title="Toggle sound alerts">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+            <button class="icon-btn" id="neon-toggle" aria-label="Toggle Neon Cyber Glow" title="Toggle Neon Cyber Glow">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M13 2L3 14h8l-1 8 11-13h-8z"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+            <a
+              class="icon-btn"
+              id="github-link"
+              href="https://github.com/SudhirDevOps1/NovaPulse"
+              target="_blank"
+              rel="noreferrer noopener"
+              aria-label="NovaPulse on GitHub"
+              title="NovaPulse on GitHub"
+            >
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M12 2.5a9.5 9.5 0 0 0-3 18.52c.48.09.65-.2.65-.46v-1.62c-2.66.58-3.22-1.28-3.22-1.28-.44-1.1-1.06-1.4-1.06-1.4-.87-.59.07-.58.07-.58.96.07 1.46.99 1.46.99.85 1.46 2.24 1.04 2.79.79.09-.62.33-1.04.6-1.28-2.12-.24-4.35-1.06-4.35-4.72 0-1.04.37-1.9.98-2.56-.1-.24-.42-1.2.09-2.51 0 0 .8-.26 2.62.98a9.1 9.1 0 0 1 4.78 0c1.82-1.24 2.62-.98 2.62-.98.51 1.31.19 2.27.1 2.51.61.66.97 1.52.97 2.56 0 3.67-2.23 4.48-4.36 4.72.34.3.65.88.65 1.78v2.63c0 .26.17.56.66.46A9.5 9.5 0 0 0 12 2.5Z"
+                  fill="currentColor"
+                />
+              </svg>
+            </a>
             <button class="icon-btn" id="refresh-btn" aria-label="Refresh data">
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path

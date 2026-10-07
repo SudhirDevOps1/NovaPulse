@@ -1,7 +1,7 @@
 {
-	"name": "Kestrel — Uptime Monitoring",
-	"short_name": "Kestrel",
-	"description": "Self-hosted uptime monitoring: percentile analytics, SSL checks, status pages and alerts.",
+	"name": "NovaPulse 2026 — Autonomous GitOps Telemetry",
+	"short_name": "NovaPulse",
+	"description": "Autonomous GitOps uptime monitoring: percentile analytics, SSL checks, status pages and alerts.",
 	"start_url": ".",
 	"scope": ".",
 	"display": "standalone",

@@ -16,7 +16,9 @@ let base;
 
 before(async () => {
 	server = createApp().listen(0);
-	await new Promise((resolve) => server.once('listening', resolve));
+	await new Promise((resolve) => {
+		server.once('listening', resolve);
+	});
 	base = `http://127.0.0.1:${server.address().port}`;
 });
 
@@ -226,6 +228,43 @@ test('svg badges render for the fleet', async () => {
 
 	const missing = await fetch(`${base}/api/badge/nope.svg`);
 	assert.equal(missing.status, 404);
+});
+
+// ALLOW_ORIGIN is read per request, so the env can be toggled inside one test.
+test('ALLOW_ORIGIN honours a comma-separated list of origins', async () => {
+	process.env.ALLOW_ORIGIN = 'https://app.example, https://status.example';
+	try {
+		const listed = await fetch(`${base}/api/health`, { headers: { Origin: 'https://app.example' } });
+		assert.equal(listed.headers.get('access-control-allow-origin'), 'https://app.example');
+
+		const second = await fetch(`${base}/api/health`, { headers: { Origin: 'https://status.example' } });
+		assert.equal(second.headers.get('access-control-allow-origin'), 'https://status.example');
+
+		// A caller that is not on the list gets no CORS grant at all.
+		const stranger = await fetch(`${base}/api/health`, { headers: { Origin: 'https://evil.example' } });
+		assert.equal(stranger.headers.get('access-control-allow-origin'), null);
+
+		// Preflight succeeds only for a listed origin; a stray preflight is not
+		// answered with 204, so the browser blocks the real request.
+		const preflight = await fetch(`${base}/api/monitors`, {
+			method: 'OPTIONS',
+			headers: { Origin: 'https://app.example', 'Access-Control-Request-Method': 'POST' },
+		});
+		assert.equal(preflight.status, 204);
+		const stray = await fetch(`${base}/api/monitors`, {
+			method: 'OPTIONS',
+			headers: { Origin: 'https://evil.example', 'Access-Control-Request-Method': 'POST' },
+		});
+		assert.notEqual(stray.status, 204);
+		assert.equal(stray.headers.get('access-control-allow-origin'), null);
+
+		// No Origin header (server-to-server call) keeps the single-origin grant.
+		process.env.ALLOW_ORIGIN = 'https://app.example';
+		const noOrigin = await fetch(`${base}/api/health`);
+		assert.equal(noOrigin.headers.get('access-control-allow-origin'), 'https://app.example');
+	} finally {
+		delete process.env.ALLOW_ORIGIN;
+	}
 });
 
 test('probe helpers parse status specs and tcp targets', () => {

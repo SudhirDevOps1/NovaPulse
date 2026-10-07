@@ -8,7 +8,7 @@
 module.exports = {
 	apps: [
 		{
-			name: 'kestrel',
+			name: 'novapulse',
 			script: 'server.js',
 			instances: 1, // the JSON store is single-writer: never run more than one instance
 			exec_mode: 'fork',

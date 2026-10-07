@@ -1,11 +1,18 @@
-/* Kestrel service worker — offline-tolerant shell.
+/* NovaPulse 2026 service worker — offline-tolerant shell.
  *
  *  - static assets: stale-while-revalidate (instant from cache,
  *    refreshed in the background so deploys are picked up next load)
  *  - navigations:   network-first with cached shell fallback
  *  - data (/api/*, data/*.json): ALWAYS network — never serve stale state
  */
-const CACHE = 'kestrel-shell-v2';
+const CACHE = 'novapulse-shell-v2026.2';
+
+/* TS's WebWorker lib types `self` as a plain WorkerGlobalScope, which has no
+ * `skipWaiting`/`clients` — those live on ServiceWorkerGlobalScope. Narrow it
+ * once here instead of casting at every call site. */
+const sw = /** @type {ServiceWorkerGlobalScope & typeof globalThis} */ (
+	/** @type {unknown} */ (self)
+);
 
 const SHELL = [
 	'./',
@@ -25,7 +32,7 @@ const SHELL = [
 	'js/views.js',
 ];
 
-self.addEventListener('install', (event) => {
+sw.addEventListener('install', (event) => {
 	event.waitUntil(
 		caches
 			.open(CACHE)
@@ -34,16 +41,16 @@ self.addEventListener('install', (event) => {
 					SHELL.map((url) => cache.add(url).catch(() => undefined)),
 				),
 			)
-			.then(() => self.skipWaiting()),
+			.then(() => sw.skipWaiting()),
 	);
 });
 
-self.addEventListener('activate', (event) => {
+sw.addEventListener('activate', (event) => {
 	event.waitUntil(
 		caches
 			.keys()
 			.then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
-			.then(() => self.clients.claim()),
+			.then(() => sw.clients.claim()),
 	);
 });
 
@@ -51,7 +58,7 @@ function isDataRequest(url) {
 	return url.pathname.includes('/api/') || url.pathname.includes('/data/');
 }
 
-self.addEventListener('fetch', (event) => {
+sw.addEventListener('fetch', (event) => {
 	const { request } = event;
 	if (request.method !== 'GET') return;
 

@@ -78,7 +78,7 @@ export function renderMonitorList({ monitors, ctx }) {
 					glyph: 'pulse',
 					title: 'No monitors yet',
 					message:
-						'Add a URL and Kestrel will start checking it immediately — no agent or install required.',
+						'Add a URL and NovaPulse will start checking it immediately — autonomous GitOps telemetry active.',
 					action: h('button', {
 						class: 'btn btn-primary',
 						text: 'New monitor',
