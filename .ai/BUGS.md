@@ -23,7 +23,7 @@ _None. The register is clear._
 
 | field | value |
 | --- | --- |
-| status | ✅ **CLOSED** — 2026-10-07 (release config fixed + preflights added; the Pages toggle itself is a repo setting, see below) |
+| status | 🔻 **PARTIALLY CLOSED** — 2026-10-07: both workflow faults fixed and pushed (`7e8ee37`); Monitor now fails at the new preflight (correct, actionable) and Release fails only on a **repository setting the operator must flip** (see Fix) |
 | severity | **high** (two of the four push-triggered workflows were permanently red) |
 | area | `release-please-config.json`, `.github/workflows/{monitor,release}.yml` |
 | introduced | first push of the pipeline (`2f6c76b`) |
@@ -65,10 +65,19 @@ _None. The register is clear._
 **Verification**
 
 - All 6 workflows parse (`js-yaml`), config parses as JSON and its keys are
-  a subset of the schema's allowed properties.
-- Re-run after push: Release workflow must pass; Monitor will still require
-  the operator to enable Pages once (documented in the failing step's own
-  summary).
+  a subset of the schema's allowed properties; a local
+  `release-please manifest-pr --dry-run` now gets **past** config validation
+  to the first GraphQL query (it stops only at 401 for want of a local token).
+- Re-run on `7e8ee37`:
+  - **Darwaza 1** — all 5 jobs green, `gate` ✅ · **Sonar** ✅
+  - **Monitor** — fails at the new *Verify Pages source* preflight (was:
+    cryptic *Setup Pages*) and its summary prints the exact UI path.
+  - **Release** — still red; the run's annotation reads verbatim
+    **“GitHub Actions is not permitted to create or approve pull requests.”**
+    i.e. the config fix landed and the remaining cause is the repository
+    toggle, not the workflow. Operator action:
+    **Settings → Actions → General → Workflow permissions → ☑ Allow GitHub
+    Actions to create and approve pull requests**.
 
 **Law it reinforces:** **L-34** — when a required capability is absent the
 pipeline must say so loudly with the remediation path, never degrade into a
