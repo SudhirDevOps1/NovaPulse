@@ -121,7 +121,25 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          git fetch --no-tags --depth=0 origin "$BASE_SHA"
+          # fetch-depth: 0 above already checked out full history. The old
+          # `git fetch --no-tags --depth=0 origin "$BASE_SHA"` could never
+          # work: git rejects a depth of 0 outright
+          # (`fatal: depth 0 is not a positive number`, exit 128), so this
+          # job failed before it linted a single commit. Fetch only when a
+          # sha is genuinely missing, and fail with a named error if it
+          # still is.
+          if ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
+            git fetch --no-tags origin "$BASE_SHA" 2>/dev/null || git fetch --no-tags origin main
+          fi
+          if ! git cat-file -e "$HEAD_SHA^{commit}" 2>/dev/null; then
+            git fetch --no-tags origin "pull/${{ github.event.pull_request.number }}/head"
+          fi
+          for sha in "$BASE_SHA" "$HEAD_SHA"; do
+            if ! git cat-file -e "$sha^{commit}" 2>/dev/null; then
+              echo "::error::commit $sha is not available in the checkout"
+              exit 1
+            fi
+          done
           fails=0
           while read -r sha; do
             [ -z "$sha" ] && continue

@@ -13,50 +13,104 @@
 
 ## 1 · Open incidents
 
-### BUG-2026-0005 — Darwaza 1 rejected the release-please PR (`chore(main): …`)
+### BUG-2026-0007 — Darwaza 1's commitlint job could never lint a single commit
 
 | field | value |
 | --- | --- |
-| status | 🔻 **OPEN — fix landed, verification pending** — 2026-10-07: root `pull-request-title-pattern` corrected; waiting on the Release run that retitles PR #1 |
+| status | 🔻 **OPEN — fix landed, verification pending** — `ci.yml` corrected; waiting on the Darwaza 1 run it triggers |
+| severity | **high** — the required `gate` check was red on **every** PR for a reason unrelated to the code |
+| area | `.github/workflows/ci.yml` → `Lint PR commits` |
+| introduced | the original Darwaza 1 definition |
+| rule produced | `.ai/RULES.md` → **L-34** (a gate that fails for the wrong reason teaches the wrong lesson) |
+
+**Symptom**
+> Every Darwaza 1 run died in *Lint PR commits* before `commitlint`
+> executed:
+> `Run set -euo pipefail` → `fatal: depth 0 is not a positive number` →
+> `Process completed with exit code 128`.
+> Verified in both runs' logs: PR #1 (run 37626113851, job 112808586961,
+> head `f317c62`) and PR #2 (run 37626962194, job 112816689331, head
+> `3011797`) — identical line, identical exit code.
+
+**Root cause**
+
+```bash
+git fetch --no-tags --depth=0 origin "$BASE_SHA"
+```
+
+git parses `--depth` as a *positive* integer and `die()`s on `0`
+(`builtin/fetch.c` → `depth %s is not a positive number`), so the command
+always exits 128; `set -euo pipefail` then aborts the step. The fetch was
+unnecessary anyway — the checkout above already runs with
+`fetch-depth: 0` (full history). Reproduced locally on git 2.56.0:
+the same `fatal:` line appears outside CI.
+
+**Fix**
+
+- The step now checks `git cat-file -e "$SHA^{commit}"` and only fetches
+  when a sha is genuinely missing (plain fetch, then `origin main`, then
+  `pull/<n>/head`), and fails with a *named* error if it still is.
+- **Evidence discipline (L-34):** this incident also corrects the
+  BUG-2026-0005 record — the CI job **never** printed `scope-enum`; that
+  violation was reproduced *locally* against the real hook. The two
+  defects were independent: a non-conforming bot title (0005) and a job
+  that could not detect it (this one).
+
+**Verification:** pending the next Darwaza 1 run on a PR.
+
+---
+
+## 2 · Closed incidents
+
+### BUG-2026-0005 — release-please's PR title could never pass commitlint (`chore(main): …`)
+
+| field | value |
+| --- | --- |
+| status | ✅ **CLOSED** — 2026-10-07. Tag + GitHub Release `v2026.1.1` published from the corrected title; the open release PR carries `chore: release …` |
 | severity | **high** (the release PR could never pass the required `gate` check) |
 | area | `release-please-config.json` → title patterns |
 | introduced | the first release-please run that opened PR #1 |
 | rule produced | `.ai/RULES.md` → **L-31**/**L-33** (Conventional Commits, gates block merge) |
 
 **Symptom**
-> PR #1 `chore(main): release 2026.1.1` → job *Conventional commit lint*:
-> `scope must be one of [api, probe, store, …] [scope-enum]` — Darwaza 1's
-> `gate` job therefore failed on a PR the bot itself opened.
+> PR #1 was opened as `chore(main): release 2026.1.1`. `main` is not in
+> the commitlint scope enum, so the message is invalid — verified against
+> the **real** hook locally: `chore(main): …` → exit 1 (`scope-enum`),
+> `chore: release 2026.1.1` → exit 0.
+> (The CI job itself never got that far — it was broken separately, see
+> BUG-2026-0007. No CI log ever showed `scope-enum`; that distinction is
+> recorded here because L-34 forbids dressing up local evidence as CI
+> evidence.)
 
 **Root cause**
 
 The default pattern `chore${scope}: release${component} ${version}` renders
 `${scope}` as **the target branch in parentheses** (`PullRequestTitle.toString()`
 → `scope = '(' + targetBranch + ')'`), producing `chore(main): release
-2026.1.1`. `main` is not (and must not be) in the commitlint scope enum —
-the gate was behaving exactly as designed, the bot's message was wrong.
+2026.1.1`.
 
 **Fix**
 
-- Pattern drops `${scope}`: `chore: release${component} ${version}` →
-  `chore: release 2026.1.1`. Verified against the real hook:
-  `chore(main): …` → **exit 1** (`scope-enum`), `chore: release 2026.1.1` →
-  **exit 0**.
-- **Second attempt (the one that should work):** the first push only changed
-  `group-pull-request-title-pattern`, and release-please kept the old title —
-  a single-package manifest never takes the *group* PR path, so the effective
-  key is the root-level **`pull-request-title-pattern`** (source:
-  `manifest.ts` → `pullRequestTitlePattern: config['pull-request-title-pattern']`
-  → `PullRequestTitle.toString()`). Both keys now carry the same shape.
-- `docs/RELEASE.md` config table documents which key governs and why.
+- First attempt changed only `group-pull-request-title-pattern` — release-please
+  kept the old title (evidence: the Release run on `1ce9378` rewrote the PR
+  branch but not its title). A single-package manifest never takes the *group*
+  PR path; the effective key is the root-level **`pull-request-title-pattern`**
+  (`manifest.ts` → `pullRequestTitlePattern: config['pull-request-title-pattern']`
+  → `PullRequestTitle.toString()`). Both keys now carry the same scopeless
+  shape, and `docs/RELEASE.md` documents which one governs.
+- **Second-order effect, also closed:** the pattern change happened *after*
+  PR #1 was opened, and `buildRelease()` parses a merged release PR's title
+  against the **current** pattern — `Bad pull request title: 'chore(main): …'`
+  → no tag (evidence: run 37626952002 summary `release created: false`,
+  `tags: none`). Retitling merged PR #1 to `chore: release 2026.1.1` and
+  dispatching the Release workflow made release-please parse it and publish
+  **tag `v2026.1.1` + GitHub Release** (2026-10-07 13:36:04Z).
 
-**Verification:** pending the next Release run (it must retitle PR #1 and
-rewrite the branch commit to `chore: release 2026.1.1`, after which Darwaza
-1's commitlint job passes) — see the closing note in `CHANGELOG.md`.
+**Verification:** tags API returns `v2026.1.1`, releases API returns the
+published release, and PR #2 (the live release PR) is titled
+`chore: release 2026.1.1` with a conforming branch commit message.
 
 ---
-
-## 2 · Closed incidents
 
 ### BUG-2026-0006 — Darwaza 2's DAST job could never enforce its policy
 

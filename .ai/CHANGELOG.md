@@ -94,9 +94,15 @@
   ([BUG-2026-0004](BUGS.md))
 * **ci:** drop `${scope}` from release-please's `pull-request-title-pattern`
   (and its group twin) so the bot stops emitting `chore(main): …`, which
-  commitlint rightly rejected — the group key alone changed nothing because a
-  single-package manifest never takes that path
+  commitlint rightly rejects — the group key alone changed nothing because a
+  single-package manifest never takes that path; retitle merged PR #1 to the
+  compliant shape so release-please could parse it and publish `v2026.1.1`
   ([BUG-2026-0005](BUGS.md))
+* **ci:** stop Darwaza 1's commitlint job from dying before it lints —
+  `git fetch --depth=0` is invalid (`fatal: depth 0 is not a positive
+  number`, exit 128), so the required `gate` check was red on every PR for a
+  reason unrelated to the code; fetch only what is actually missing
+  ([BUG-2026-0007](BUGS.md))
 * **ci:** make Darwaza 2's DAST job enforce the policy it always claimed to —
   drop the two inputs `zaproxy/action-baseline` does not declare, stop the
   action from filing issues this token may not write, and evaluate the real
