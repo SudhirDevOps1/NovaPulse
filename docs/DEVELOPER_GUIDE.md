@@ -18,7 +18,7 @@ you edit code ──► branch ──► pull request ──► 4 required check
                                                                     │
                         ┌───────────────────────────────────────────┤
                         ▼                                           ▼
-              Release (release-please)                    Monitor (every 5 min)
+              Release (manual dispatch)                 Monitor (every 5 min)
               opens `chore: release X` PR                 probe → state branch → Pages
                         │
                         ▼
@@ -50,8 +50,8 @@ Everything lives in the **Actions** tab. Each run = a workflow; inside it are
 | 2 | **Darwaza 2 · Heavy PR Gate** (`e2e-gate.yml`) | every PR to `main`, manual | `Playwright E2E (desktop + mobile)` · `OWASP ZAP baseline (DAST)` | ✅ **both** |
 | 3 | **Sonar quality gate** (`sonar.yml`) | every PR, every push to `main`, manual | `SonarQube scan + quality gate notification` | ✅ |
 | 4 | **Darwaza 3 · Nightly Deep Audit** (`security-scan.yml`) | nightly `30 20 * * *` UTC (= **02:00 IST**), manual | `codeql` · `Semgrep SAST` · `NPM critical/high CVE audit` · `File issue on failure` | ❌ nightly only |
-| 5 | **Release** (`release.yml`) | push to `main`, manual | `release-please` | ❌ |
-| 6 | **Monitor** (`monitor.yml`) | push to `main`/`master`, cron `*/5 * * * *`, manual | `monitor` | ❌ |
+| 5 | **Release** (`release.yml`) | **manual only** (`workflow_dispatch`) | `release-please` | ❌ |
+| 6 | **Monitor** (`monitor.yml`) | push to `main`/`master` (**site paths only**), cron `*/5 * * * *`, manual | `monitor` | ❌ |
 
 ### Darwaza 1 — the fast gate (`ci.yml`)
 
@@ -105,6 +105,11 @@ never pushes to `main` itself. Title shape is governed by the root
 `pull-request-title-pattern` in `release-please-config.json`; don't rename it
 (commitlint would reject it).
 
+**The trigger is manual only.** Pushing/merging to `main` does **not** open a
+release PR, bump a version, create a tag or publish a Release — nothing. When
+you actually want to cut a release: **Actions → Release → Run workflow** →
+merge that green PR.
+
 ### Monitor (`monitor.yml`) — your ₹0 SaaS replacement
 
 1. restore previous state from the **`state` branch**,
@@ -116,6 +121,11 @@ never pushes to `main` itself. Title shape is governed by the root
 
 A summary line like *"State unchanged"* means probes ran and nothing flipped —
 that is the healthy case.
+
+**When it runs:** the `*/5` cron (the real heartbeat — it always deploys the
+fresh data), a push that touches `config/`, `public/`, `site/`, `tools/` or the
+workflow file itself, or **Run workflow** by hand. Pushes that only change docs,
+tests, `lib/` or `server.js` do **not** redeploy Pages.
 
 ---
 
@@ -205,9 +215,11 @@ git push -u origin fix/short-description
 2. Watch the **Checks** tab: 4 required checks (§2). First PR from a new
    account → click **Approve workflows to run** once.
 3. All green → **Merge pull request**. Nothing else can land on `main`.
-4. After the merge, `main` kicks off **Monitor**, **Release** (updates the
-   `chore: release X` PR), **Sonar** and **Darwaza 1**.
-5. When release-please's PR is green, merge it → tag + GitHub Release.
+4. After the merge, `main` kicks off **Sonar** and **Darwaza 1**; **Monitor**
+   only joins in when the change touched `config/`, `public/`, `site/` or
+   `tools/` (the 5-min cron deploys everything else anyway).
+5. Releases are opt-in: **Actions → Release → Run workflow** → when its
+   `chore: release X` PR is green, merge it → tag + GitHub Release.
 
 ---
 
@@ -221,7 +233,7 @@ git push -u origin fix/short-description
 | What did ZAP/E2E find? | the run → **Artifacts** (`zap-baseline-report`, `zap_scan`, `playwright-report`, `sonar-report`, `semgrep-report`, `npm-audit-report` — kept **14 days**) | download and unzip; `zap-policy.js`'s verdict is in the job summary |
 | Is the site live? | <https://sudhirdevops1.github.io/NovaPulse/> or `curl …/api/health` | health returns monitor count, channel status, version |
 | Are probes healthy? | Actions → **Monitor** → latest run | `State unchanged` = healthy no-flip |
-| What version is out? | [Releases](https://github.com/SudhirDevOps1/NovaPulse/releases) | created by merging the release PR |
+| What version is out? | [Releases](https://github.com/SudhirDevOps1/NovaPulse/releases) | opened by a **manual** Release run, then created by merging that PR |
 | Quality trend | [SonarCloud summary](https://sonarcloud.io/summary/new_code?project=SudhirDevOps1_NovaPulse) | needs the Sonar secrets (§3.3) |
 
 **"Expected — Waiting for status to be reported"** (what PR #4 shows while the

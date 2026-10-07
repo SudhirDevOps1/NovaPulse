@@ -238,8 +238,8 @@ Full schema, migration contract and zero-data-loss guarantees:
 | **Darwaza 2 — Heavy PR Gate** | `workflows/e2e-gate.yml` | PR → `main`, manual | ✅ yes (per branch protection) |
 | **Darwaza 3 — Nightly Deep Audit** | `workflows/security-scan.yml` | cron `30 20 * * *` (02:00 IST) + manual | no — opens/updates an issue |
 | **Sonar quality gate** | `workflows/sonar.yml` | push to `main`, PR, manual | no — opens/updates a `sonar-quality-gate` issue and comments on the PR |
-| **Release Gate** | `workflows/release.yml` | push to `main` | no — opens the release PR |
-| Monitor (product feature) | `workflows/monitor.yml` | cron `*/5`, push, manual | n/a |
+| **Release Gate** | `workflows/release.yml` | `workflow_dispatch` only (manual) | no — opens the release PR |
+| Monitor (product feature) | `workflows/monitor.yml` | cron `*/5`, push (site paths: `config/`, `public/`, `site/`, `tools/`), manual | n/a |
 
 Sonar needs the `SONAR_TOKEN` + `SONAR_HOST_URL` repository secrets; when they are
 absent the job states that plainly in the job summary and never reports a fake pass.
