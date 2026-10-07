@@ -155,6 +155,12 @@ function securityHeaders(req, res, next) {
 	res.setHeader('Referrer-Policy', 'no-referrer');
 	res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
 	res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+	// Cross-origin isolation (ZAP baseline flags their absence): no cross-origin
+	// subresource may load without opting in, and documents are not readable
+	// cross-origin. CSP already forbids cross-origin sources, so require-corp
+	// cannot break the UI; embeddable badge SVGs relax CORP below (README §badges).
+	res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+	res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
 	res.setHeader('X-DNS-Prefetch-Control', 'off');
 	res.setHeader(
 		'Content-Security-Policy',
@@ -485,6 +491,9 @@ function createApp() {
 
 		res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
 		res.setHeader('Cache-Control', 'public, max-age=60');
+		// Badges exist to be embedded in READMEs and status pages hosted
+		// elsewhere — they must stay cross-origin embeddable (README §badges).
+		res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
 		res.send(badgeSvg({ name, status, uptime, style }));
 	});
 

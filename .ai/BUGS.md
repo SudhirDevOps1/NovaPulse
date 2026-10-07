@@ -104,10 +104,39 @@ The gate was red — but for infrastructure reasons, not security findings.
 - Covered by 6 new specs in `test/zap-policy.test.js` (suite 13 → **19**);
   counts synced across `.ai/`, `docs/`, `.agent/`.
 
+**Phase 2 — the scan step still failed, this time for a fourth reason**
+
+The re-run surfaced two more annotations:
+
+1. `Create Artifact Container failed: The artifact name zap_scan is not
+   valid` — `zaproxy/action-baseline@v0.12.0` uploads through the retired
+   artifact service. **v0.14.0** is explicitly released as *"Update
+   dependencies to stop using deprecated `upload-artifact` version"*, so the
+   workflow now pins **v0.15.0** (node24, current artifact API).
+2. The two real findings the log had hidden all along — the gate's actual
+   verdict:
+   - `Cross-Origin-Resource-Policy Header Missing or Invalid`
+   - `Cross-Origin-Embedder-Policy Header Missing or Invalid`
+
+**App fix for the real findings**
+
+- `securityHeaders` now sends `Cross-Origin-Embedder-Policy: require-corp`
+  and `Cross-Origin-Resource-Policy: same-origin` on every response (CSP's
+  `default-src 'self'` guarantees no cross-origin subresource exists, so
+  `require-corp` cannot break the UI — E2E verified).
+- `/api/badge/:id.svg` relaxes CORP to `cross-origin`: the badges are
+  documented as embeddable in foreign READMEs (README §badges), and
+  `same-origin` would have silently broken that feature — a regression the
+  scanner would never have caught.
+- Header assertions extended in `test/api.test.js` and
+  `e2e/dashboard.spec.mjs` (counts unchanged, 19 / 26).
+- L-18 in `.ai/RULES.md`, `docs/SECURITY.md`, `.ai/SECURITY.md`, `PRD.md`
+  and `REVIEW.md` now name COEP/CORP.
+
 **Verification:** `pnpm run check` exit 0 — typecheck ×2, lint
-`--max-warnings=0`, **19/19 tests**, build; the two real ZAP findings
-(`WARN-NEW: 2`) are now surfaced as named, risk-classified rows in the step
-summary on the next run.
+`--max-warnings=0`, **19/19 tests**, build; `pnpm run e2e` green with the
+hardened headers. CI confirmation pending the push: the ZAP job must reach
+*Evaluate ZAP findings against the policy* and pass it.
 
 ---
 

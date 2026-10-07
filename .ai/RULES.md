@@ -110,9 +110,13 @@ be the default in any shipped config, Dockerfile, or compose file.
 
 ### L-18 · Security Headers Are Not Optional
 `Content-Security-Policy` (no `unsafe-inline`), `frame-ancestors 'none'`,
-`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`
-and `Permissions-Policy` are set on every response. Relaxing them for a demo
-requires `ALLOW_FRAMING=1` **and** an explicit note that it is local-only.
+`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`,
+`Permissions-Policy`, `Cross-Origin-Opener-Policy`,
+`Cross-Origin-Embedder-Policy: require-corp` and
+`Cross-Origin-Resource-Policy: same-origin` are set on every response — the
+badge SVGs answer `cross-origin` so they stay embeddable (README §badges).
+Relaxing them for a demo requires `ALLOW_FRAMING=1` **and** an explicit note
+that it is local-only.
 
 ---
 

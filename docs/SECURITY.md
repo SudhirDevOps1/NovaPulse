@@ -68,7 +68,7 @@ don't know" early rather than guessing).
 | --- | --- |
 | Content-Security-Policy | `default-src 'self'` · `base-uri 'none'` · `form-action 'self'` · `object-src 'none'` · `script-src 'self'` · `frame-ancestors 'none'` — **no `unsafe-inline`** (`server.js` → `securityHeaders()`) |
 | Framing | `X-Frame-Options: DENY` + `frame-ancestors 'none'`; relaxed **only** by `ALLOW_FRAMING=1` (local QA) |
-| Other headers | `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Permissions-Policy: camera=(), microphone=(), geolocation=()`, `Cross-Origin-Opener-Policy: same-origin`, `X-DNS-Prefetch-Control: off`, HSTS on TLS, `x-powered-by` disabled |
+| Other headers | `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Permissions-Policy: camera=(), microphone=(), geolocation=()`, `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Embedder-Policy: require-corp`, `Cross-Origin-Resource-Policy: same-origin` (badge SVGs answer `cross-origin` so they stay embeddable), `X-DNS-Prefetch-Control: off`, HSTS on TLS, `x-powered-by` disabled |
 | Rate limiting | hand-rolled limiter (`lib/limits.js`) on `/api`: **240 req/min/IP** (`RATE_LIMIT_MAX`), `X-RateLimit-*` + `429` with `Retry-After` |
 | Input validation | single ingress `validateMonitor()` in `server.js` — URL must be `http:`/`https:`/`tcp:`, length/range/enum limits on every field, JSON body capped at 64 kb, ≤10 custom headers with name/value rules |
 | CSRF posture | JSON-only bodies (a cross-site form cannot forge them), no CORS headers unless `ALLOW_ORIGIN` is set, `form-action 'self'` |

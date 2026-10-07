@@ -58,7 +58,7 @@ node -e "console.log(require('./package.json').version)"   # which build (BUG-20
 | B7 (**L-15**) | Scheme allowlist | new URL/image inputs restricted to `https:`/`http:`/safe `data:image/`; no `javascript:`, no protocol-relative URLs |
 | B8 (**L-16**) | Mutating routes guarded | every new `POST/PATCH/PUT/DELETE` has same-origin/CSRF handling and is under `/api` rate limiting; cross-site `Origin` rejected (see `TODO.md` NOW-4) |
 | B9 (**L-17**) | Rate limit intact | limiter still on by default (240/min/IP); `RATE_LIMIT=off` appears only in test/QA config, never in a shipped default |
-| B10 (**L-18**) | Headers intact | CSP has **no** `unsafe-inline`; `frame-ancestors 'none'` (unless `ALLOW_FRAMING=1`, local only), nosniff, DENY, `no-referrer`, Permissions-Policy, COOP present on every response |
+| B10 (**L-18**) | Headers intact | CSP has **no** `unsafe-inline`; `frame-ancestors 'none'` (unless `ALLOW_FRAMING=1`, local only), nosniff, DENY, `no-referrer`, Permissions-Policy, COOP + COEP (`require-corp`) + CORP (`same-origin`; badges `cross-origin`) present on every response |
 
 ```bash
 pnpm test                 # includes "sends hardened security headers"

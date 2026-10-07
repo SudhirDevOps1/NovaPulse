@@ -127,7 +127,7 @@ jobs:
 
       # ghcr.io/zaproxy/zaproxy:stable is the official image; `baseline` is the
       # passive quick-scan — it replays the app's own traffic and never sends
-      # attack payloads. Only inputs v0.12.0 actually declares are set here
+      # attack payloads. Only inputs the action actually declares are set here
       # (BUG-2026-0006: `format`/`output_file` were ignored with a warning and
       # pointed the policy at a file ZAP never writes).
       #
@@ -137,7 +137,10 @@ jobs:
       # attempting it aborted the scan step outright (BUG-2026-0006).
       # Darwaza 3 (security-scan.yml) is the workflow that owns issues.
       - name: Run ZAP baseline scan
-        uses: zaproxy/action-baseline@v0.12.0
+        # v0.14.0+ uploads through the current artifact service — v0.12.0 died
+        # on `Create Artifact Container failed: The artifact name zap_scan is
+        # not valid` (BUG-2026-0006); v0.15.0 also runs on node24.
+        uses: zaproxy/action-baseline@v0.15.0
         with:
           target: 'http://localhost:3000'
           fail_action: false # report first; the policy step below enforces the gate

@@ -85,6 +85,8 @@ Content-Security-Policy: default-src 'self'; base-uri 'none'; form-action 'self'
 X-Content-Type-Options: nosniff          X-Frame-Options: DENY
 Referrer-Policy: no-referrer             Permissions-Policy: camera=(), microphone=(), geolocation=()
 Cross-Origin-Opener-Policy: same-origin  X-DNS-Prefetch-Control: off
+Cross-Origin-Embedder-Policy: require-corp
+Cross-Origin-Resource-Policy: same-origin  ← badges answer cross-origin (embeddable)
 Strict-Transport-Security: max-age=31536000; includeSubDomains     ← only when req.secure
 X-Powered-By: disabled                   X-Request-Id: <8-char uuid per request>
 ```

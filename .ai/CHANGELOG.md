@@ -104,6 +104,16 @@
   notice) instead of grepping a file ZAP never produces; 6 new specs take the
   suite to 19/19
   ([BUG-2026-0006](BUGS.md))
+* **security:** send `Cross-Origin-Embedder-Policy: require-corp` and
+  `Cross-Origin-Resource-Policy: same-origin` on every response — the two
+  real findings ZAP had been reporting all along — while badge SVGs keep
+  `cross-origin` so the documented embeddable-badge feature still works
+  ([BUG-2026-0006](BUGS.md))
+* **ci:** pin `zaproxy/action-baseline@v0.15.0` — v0.12.0 uploads through the
+  retired artifact service and aborted the scan with `Create Artifact
+  Container failed` (v0.14.0 is the release that stopped using the
+  deprecated `upload-artifact`)
+  ([BUG-2026-0006](BUGS.md))
 * **ci:** ignore Playwright/ZAP/Sonar/coverage artefacts in `.gitignore`
 * **docs:** close the NOW-7 doc-drift sweep — `CONTEXT.md` re-derived (13
   specs / 6 workflows / 19 tests), `docs/` exists with `RULES`·`SECURITY`·

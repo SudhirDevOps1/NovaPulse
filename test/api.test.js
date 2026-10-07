@@ -79,6 +79,9 @@ test('sends hardened security headers', async () => {
 	assert.match(response.headers.get('content-security-policy') || '', /default-src 'self'/);
 	assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
 	assert.equal(response.headers.get('x-frame-options'), 'DENY');
+	assert.equal(response.headers.get('cross-origin-opener-policy'), 'same-origin');
+	assert.equal(response.headers.get('cross-origin-embedder-policy'), 'require-corp');
+	assert.equal(response.headers.get('cross-origin-resource-policy'), 'same-origin');
 	assert.equal(response.headers.get('x-powered-by'), null);
 	assert.ok(response.headers.get('x-request-Id') || response.headers.get('x-request-id'));
 });
@@ -221,6 +224,8 @@ test('svg badges render for the fleet', async () => {
 	const badge = await fetch(`${base}/api/badge/fleet.svg?style=for-the-badge`);
 	assert.equal(badge.status, 200);
 	assert.match(badge.headers.get('content-type') || '', /image\/svg/);
+	// badges are documented as cross-origin embeddable (README §badges)
+	assert.equal(badge.headers.get('cross-origin-resource-policy'), 'cross-origin');
 	const text = await badge.text();
 	assert.match(text, /<svg/);
 	assert.match(text, /NOVAPULSE/); // for-the-badge uppercases the label

@@ -160,7 +160,7 @@ trails, multi-tenant SaaS, and teams needing sub-second alerting — see §6.
 | FR-11 | Settings: status-page block only, allowlisted fields, channel status | `store.updateSettings`, `/api/settings` | `test/api.test.js` settings spec |
 | FR-12 | Dashboard: hash routes `#/overview #/monitors #/incidents #/settings`, toast on every save, inline validation, responsive sidebar, state survives reload | `public/js/*` | 8 dashboard e2e specs |
 | FR-13 | Static (GitHub Pages) mode: read-only dashboard + alerts from Actions | `tools/gh-check.js`, `tools/gh-build.js`, `monitor.yml` | `pnpm run build` + `build:check` |
-| FR-14 | Security baseline on every response: CSP without `unsafe-inline`, nosniff, DENY, `no-referrer`, Permissions-Policy, COOP, HSTS-when-TLS, `X-Request-Id`, rate limit 240/min/IP on `/api` | `server.js` → `securityHeaders`, `lib/limits.js` | unit + e2e header specs |
+| FR-14 | Security baseline on every response: CSP without `unsafe-inline`, nosniff, DENY, `no-referrer`, Permissions-Policy, COOP/COEP/CORP, HSTS-when-TLS, `X-Request-Id`, rate limit 240/min/IP on `/api` | `server.js` → `securityHeaders`, `lib/limits.js` | unit + e2e header specs |
 | FR-15 | Graceful shutdown with state flush; atomic writes with debounced coalescing | `server.js`, `lib/store.js` | code review + [`DATABASE.md`](DATABASE.md) §3 |
 
 ---
