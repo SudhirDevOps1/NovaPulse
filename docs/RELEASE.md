@@ -28,7 +28,8 @@
 | `packages["."].separate-pull-requests` | `false` | one grouped release PR |
 | `packages["."].extra-files` | `[{type: json, path: package.json, jsonpath: $.version}]` | keeps `package.json` `version` in step with the manifest |
 | `sequential-calls` | `false` | GitHub API calls are batched |
-| `group-pull-request-title-pattern` | `chore: release${component} ${version}` | the release PR title **and** the release commit message. The old `chore${scope}…` form rendered `chore(main): release 2026.1.1`, which Darwaza 1's commitlint rejected (`main` is not in the scope enum) — dropping `${scope}` keeps the gate strict and the bot compliant |
+| `pull-request-title-pattern` | `chore: release${component} ${version}` | the release PR title **and** the release commit message for this single-package manifest. The default `chore${scope}…` renders `${scope}` as the target branch, producing `chore(main): release 2026.1.1`, which Darwaza 1's commitlint rightly rejected (`main` is not in the scope enum) — dropping `${scope}` keeps the gate strict and the bot compliant. **This is the key that governs**: a one-package manifest never takes the group path, so changing only the `group-` variant (BUG-2026-0005's first attempt) changed nothing |
+| `group-pull-request-title-pattern` | `chore: release${component} ${version}` | same shape, used if the manifest ever grows a second package and release-please bundles them into one PR |
 | `$schema` | `.../release-please/main/schemas/config.json` | the config is schema-validated; the schema is `additionalProperties: false`, so **only documented top-level keys are allowed** — an extra key fails the workflow (this actually happened with a `release-please.bootstrap-sha` block and was removed 2026-10-07) |
 
 Both files are edited **only by the bot**. Hand-editing them or the generated
@@ -159,7 +160,7 @@ Run against the tree you are about to release; all boxes are mandatory
 | --- | --- | --- |
 | No release PR appears | last commits are not Conventional (`chore`-only or unparseable) | check the *Summarise* step output in the run; rewrite/fix the commit messages |
 | Wrong bump | a commit type was mis-classified | add a corrective Conventional commit (never edit the manifest by hand) |
-| PR title looks odd | `group-pull-request-title-pattern` applied | cosmetic — merge normally; do not retitle |
+| PR title looks odd | `pull-request-title-pattern` applied | cosmetic — merge normally; do not retitle |
 | Version skew `package.json` vs manifest | interrupted run | re-run `release.yml` via `workflow_dispatch`; release-please reconciles both files |
 | Release PR red | a gate failed | fix the code — never disable a gate (L-34) |
 | Changelog entry missing | commit type outside the enum | fix the commit message; the next release picks it up |

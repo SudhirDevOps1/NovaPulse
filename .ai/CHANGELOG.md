@@ -82,8 +82,10 @@
   workflows self-diagnosing — Pages preflight with the exact UI path, a
   failure-time cause list for release-please
   ([BUG-2026-0004](BUGS.md))
-* **ci:** drop `${scope}` from the release PR title pattern so release-please
-  stops emitting `chore(main): …`, which commitlint rightly rejected
+* **ci:** drop `${scope}` from release-please's `pull-request-title-pattern`
+  (and its group twin) so the bot stops emitting `chore(main): …`, which
+  commitlint rightly rejected — the group key alone changed nothing because a
+  single-package manifest never takes that path
   ([BUG-2026-0005](BUGS.md))
 * **ci:** make Darwaza 2's DAST job enforce the policy it always claimed to —
   drop the two inputs `zaproxy/action-baseline` does not declare, stop the

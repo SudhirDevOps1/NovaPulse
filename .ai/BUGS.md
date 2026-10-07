@@ -13,7 +13,46 @@
 
 ## 1 · Open incidents
 
-_None. The register is clear._
+### BUG-2026-0005 — Darwaza 1 rejected the release-please PR (`chore(main): …`)
+
+| field | value |
+| --- | --- |
+| status | 🔻 **OPEN — fix landed, verification pending** — 2026-10-07: root `pull-request-title-pattern` corrected; waiting on the Release run that retitles PR #1 |
+| severity | **high** (the release PR could never pass the required `gate` check) |
+| area | `release-please-config.json` → title patterns |
+| introduced | the first release-please run that opened PR #1 |
+| rule produced | `.ai/RULES.md` → **L-31**/**L-33** (Conventional Commits, gates block merge) |
+
+**Symptom**
+> PR #1 `chore(main): release 2026.1.1` → job *Conventional commit lint*:
+> `scope must be one of [api, probe, store, …] [scope-enum]` — Darwaza 1's
+> `gate` job therefore failed on a PR the bot itself opened.
+
+**Root cause**
+
+The default pattern `chore${scope}: release${component} ${version}` renders
+`${scope}` as **the target branch in parentheses** (`PullRequestTitle.toString()`
+→ `scope = '(' + targetBranch + ')'`), producing `chore(main): release
+2026.1.1`. `main` is not (and must not be) in the commitlint scope enum —
+the gate was behaving exactly as designed, the bot's message was wrong.
+
+**Fix**
+
+- Pattern drops `${scope}`: `chore: release${component} ${version}` →
+  `chore: release 2026.1.1`. Verified against the real hook:
+  `chore(main): …` → **exit 1** (`scope-enum`), `chore: release 2026.1.1` →
+  **exit 0**.
+- **Second attempt (the one that should work):** the first push only changed
+  `group-pull-request-title-pattern`, and release-please kept the old title —
+  a single-package manifest never takes the *group* PR path, so the effective
+  key is the root-level **`pull-request-title-pattern`** (source:
+  `manifest.ts` → `pullRequestTitlePattern: config['pull-request-title-pattern']`
+  → `PullRequestTitle.toString()`). Both keys now carry the same shape.
+- `docs/RELEASE.md` config table documents which key governs and why.
+
+**Verification:** pending the next Release run (it must retitle PR #1 and
+rewrite the branch commit to `chore: release 2026.1.1`, after which Darwaza
+1's commitlint job passes) — see the closing note in `CHANGELOG.md`.
 
 ---
 
@@ -72,48 +111,11 @@ summary on the next run.
 
 ---
 
-### BUG-2026-0005 — Darwaza 1 rejected the release-please PR (`chore(main): …`)
-
-| field | value |
-| --- | --- |
-| status | ✅ **CLOSED** — 2026-10-07 |
-| severity | **high** (the release PR could never pass the required `gate` check) |
-| area | `release-please-config.json` → `group-pull-request-title-pattern` |
-| introduced | the first release-please run that opened PR #1 |
-| rule produced | `.ai/RULES.md` → **L-31**/**L-33** (Conventional Commits, gates block merge) |
-
-**Symptom**
-> PR #1 `chore(main): release 2026.1.1` → job *Conventional commit lint*:
-> `scope must be one of [api, probe, store, …] [scope-enum]` — Darwaza 1's
-> `gate` job therefore failed on a PR the bot itself opened.
-
-**Root cause**
-
-The configured pattern `chore${scope}: release${component} ${version}` makes
-release-please substitute the *branch* into `${scope}`, producing
-`chore(main): release 2026.1.1`. `main` is not (and must not be) in the
-commitlint scope enum — the gate was behaving exactly as designed, the bot's
-message was wrong.
-
-**Fix**
-
-- Pattern dropped `${scope}`: `chore: release${component} ${version}` →
-  `chore: release 2026.1.1`.
-- Verified both strings against the real hook:
-  `chore(main): …` → **exit 1** (`scope-enum`), `chore: release 2026.1.1` →
-  **exit 0**.
-- `docs/RELEASE.md` config table records why the pattern is shapeless.
-
-**Verification:** release-please re-ran on push, retitled the open PR with
-the compliant message, and Darwaza 1's commitlint job passed on it.
-
----
-
 ### BUG-2026-0004 — Release workflow failed on every push; Monitor could not deploy
 
 | field | value |
 | --- | --- |
-| status | ✅ **CLOSED** — 2026-10-07. Both repo toggles set (Pages source = GitHub Actions; "Allow GitHub Actions to create and approve pull requests" = on), failed jobs re-run: **Monitor ✅** (site live at `https://sudhirdevops1.github.io/NovaPulse/`, HTTP 200) and **Release ✅** (opened PR #1 `chore: release 2026.1.1`) |
+| status | ✅ **CLOSED** — 2026-10-07. Both repo toggles set (Pages source = GitHub Actions; "Allow GitHub Actions to create and approve pull requests" = on), failed jobs re-run: **Monitor ✅** (site live at `https://sudhirdevops1.github.io/NovaPulse/`, HTTP 200) and **Release ✅** (opened PR #1) |
 | severity | **high** (two of the four push-triggered workflows were permanently red) |
 | area | `release-please-config.json`, `.github/workflows/{monitor,release}.yml` |
 | introduced | first push of the pipeline (`2f6c76b`) |
