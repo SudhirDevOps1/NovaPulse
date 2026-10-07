@@ -88,7 +88,7 @@ don't know" early rather than guessing).
 | darwaza | workflow | what it runs | gate |
 | --- | --- | --- | --- |
 | 1 · Fast PR Gate | `ci.yml` | typecheck, lint (`--max-warnings=0`), tests, build, Docker build, commitlint | blocks merge (`gate`) |
-| 2 · Heavy PR Gate | `e2e-gate.yml` | Playwright desktop + mobile, **OWASP ZAP baseline** (passive) | blocks merge; any ZAP `W` finding fails, `I` is reported only |
+| 2 · Heavy PR Gate | `e2e-gate.yml` | Playwright desktop + mobile, **OWASP ZAP baseline** (passive) | blocks merge; any ZAP risk 1–3 (Low/Medium/High) finding fails via `tools/zap-policy.js`, risk 0 (Informational) is reported only |
 | 3 · Nightly Deep Audit | `security-scan.yml` | CodeQL v4 (fails on open `error` alerts), Semgrep (`p/security-audit`, `p/javascript`, `p/nodejs`), npm audit (fails on high/critical) | nightly + manual; failure opens/updates a `security-nightly` issue |
 
 Artifacts from a run (`semgrep-report`, `npm-audit-report`, `zap-baseline-report`,

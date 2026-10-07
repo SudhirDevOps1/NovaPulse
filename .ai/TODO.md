@@ -49,7 +49,7 @@ definition of done.
         `method` when absent — no throw, no 500.
   - [ ] Unit test loads a fixture missing every optional field and asserts
         `GET /api/monitors` → 200 and `addHistory` succeeds.
-  - [ ] Existing 13 tests stay green; `pnpm run typecheck` / `lint` exit 0.
+  - [ ] Existing 19 tests stay green; `pnpm run typecheck` / `lint` exit 0.
 
 ### NOW-2 · Quarantine a corrupt state file instead of overwriting it
 
@@ -198,7 +198,7 @@ definition of done.
 
 ### NEXT-5 · Put `pnpm test` in the local pre-commit gate
 
-- **Why:** `.husky/pre-commit` runs `typecheck` + `lint` only; the 13 tests take
+- **Why:** `.husky/pre-commit` runs `typecheck` + `lint` only; the 19 tests take
   ~1.4 s and would catch API regressions before the push (Darwaza 1 catches them
   later, i.e. after the developer has context-switched).
 - **Acceptance criteria:** hook runs `typecheck → lint → test`; total hook time

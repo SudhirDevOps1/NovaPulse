@@ -81,7 +81,7 @@ Gate policies to apply when interpreting output (from the workflow files):
 | CodeQL v4 | open alerts with severity `error` fail the job | warning/note alerts |
 | Semgrep (`p/security-audit` + `p/javascript` + `p/nodejs`) | `--error` ⇒ any finding fails | — |
 | npm audit | `high` + `critical` counts > 0 fails | moderate/low |
-| ZAP baseline | `W` (warning) lines in `zap-baseline.conf` fail | `I` (info) lines |
+| ZAP baseline | risk 1–3 (Low/Medium/High) findings in `report_json.json`, enforced by `tools/zap-policy.js` | risk 0 (Informational) |
 | Playwright | any failed test fails | — |
 
 ### 3 · Triage

@@ -55,7 +55,7 @@
   ([BUG-2026-0001](BUGS.md))
 * **api:** honour a comma-separated `ALLOW_ORIGIN` — split the list, echo only
   the caller's origin when it is listed, and answer preflights solely for
-  listed origins; covered by a new CORS test (13 unit tests)
+  listed origins; covered by a new CORS test (19 unit tests today)
 * **status:** read the theme preference from `novapulse.theme` first with a
   legacy `kestrel.theme` fallback, so the public status page and the
   dashboard can no longer disagree after a theme switch
@@ -85,9 +85,16 @@
 * **ci:** drop `${scope}` from the release PR title pattern so release-please
   stops emitting `chore(main): …`, which commitlint rightly rejected
   ([BUG-2026-0005](BUGS.md))
+* **ci:** make Darwaza 2's DAST job enforce the policy it always claimed to —
+  drop the two inputs `zaproxy/action-baseline` does not declare, stop the
+  action from filing issues this token may not write, and evaluate the real
+  `report_json.json` with `tools/zap-policy.js` (risk 1–3 blocks, risk 0 is a
+  notice) instead of grepping a file ZAP never produces; 6 new specs take the
+  suite to 19/19
+  ([BUG-2026-0006](BUGS.md))
 * **ci:** ignore Playwright/ZAP/Sonar/coverage artefacts in `.gitignore`
 * **docs:** close the NOW-7 doc-drift sweep — `CONTEXT.md` re-derived (13
-  specs / 6 workflows / 13 tests), `docs/` exists with `RULES`·`SECURITY`·
+  specs / 6 workflows / 19 tests), `docs/` exists with `RULES`·`SECURITY`·
   `RELEASE`, all relative links across 24 Markdown files resolve
 
 ### Miscellaneous

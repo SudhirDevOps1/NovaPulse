@@ -13,6 +13,9 @@ e2e/.tmp-data/
 coverage/
 zap-baseline.conf
 zap-baseline.rules
+report_json.json
+report_md.md
+report_html.html
 semgrep-report.json
 npm-audit-report.json
 sonar-quality-gate.json

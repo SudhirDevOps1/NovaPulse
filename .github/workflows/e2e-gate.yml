@@ -126,40 +126,36 @@ jobs:
             -d '{"statusPage":{"enabled":true,"title":"Status","message":"live"}}' >/dev/null
 
       # ghcr.io/zaproxy/zaproxy:stable is the official image; `baseline` is the
-      # passive quick-scan. `-I` follows the API/monitor/authenticated-free
-      # surfaces; the report is always uploaded, pass or fail.
+      # passive quick-scan — it replays the app's own traffic and never sends
+      # attack payloads. Only inputs v0.12.0 actually declares are set here
+      # (BUG-2026-0006: `format`/`output_file` were ignored with a warning and
+      # pointed the policy at a file ZAP never writes).
+      #
+      # allow_issue_writing: false — the PR gate reports through its own
+      # policy step, annotations and the `zap_scan` artifact. Filing issues
+      # needs `issues: write`, which this workflow deliberately does not hold;
+      # attempting it aborted the scan step outright (BUG-2026-0006).
+      # Darwaza 3 (security-scan.yml) is the workflow that owns issues.
       - name: Run ZAP baseline scan
         uses: zaproxy/action-baseline@v0.12.0
         with:
           target: 'http://localhost:3000'
-          format: full
-          output_file: zap-baseline.conf
-          rules_file_name: zap-baseline.rules
-          issue_title: ZAP baseline report
-          fail_action: false # report first; the job below enforces the policy
+          fail_action: false # report first; the policy step below enforces the gate
+          allow_issue_writing: false
+          artifact_name: zap_scan
         env:
           # The container must reach the target; the action runs in its own net.
           CI: true
 
       - name: Evaluate ZAP findings against the policy
-        # Baseline output is a config file of `ruleID risk W|I|N` lines.
-        # Policy: any WARN-level (W) finding fails the gate; INFO (I) is
-        # reported but non-blocking. This keeps the gate real without making
-        # it un-actionable on informational notes such as Server header leaks.
-        run: |
-          set -euo pipefail
-          if [ ! -f zap-baseline.conf ]; then
-            echo "::error::ZAP produced no report — treating as failure"
-            exit 1
-          fi
-          warns=$(grep -cE '^[0-9]+ +[0-9]+ +W' zap-baseline.conf || true)
-          infos=$(grep -cE '^[0-9]+ +[0-9]+ +I' zap-baseline.conf || true)
-          echo "ZAP warnings: $warns  info: $infos"
-          if [ "$warns" -gt 0 ]; then
-            echo "::error::ZAP baseline reported $warns warning-level finding(s)"
-            grep -E '^[0-9]+ +[0-9]+ +W' zap-baseline.conf
-            exit 1
-          fi
+        # The action leaves report_json.json (ZAP's JSON report) in the
+        # workspace. Policy: risk 1-3 (Low/Medium/High — ZAP's default
+        # configuration triages every such alert as WARN) fails the gate;
+        # risk 0 (Informational) is reported as a notice but is non-blocking.
+        # tools/zap-policy.js implements this and is covered by
+        # test/zap-policy.test.js.
+        if: always()
+        run: node tools/zap-policy.js report_json.json
 
       - name: Upload ZAP report
         if: always()
@@ -167,10 +163,11 @@ jobs:
         with:
           name: zap-baseline-report
           path: |
-            zap-baseline.conf
-            zap-baseline.rules
+            report_json.json
+            report_md.md
+            report_html.html
           retention-days: 14
-          if-no-files-found: ignore
+          if-no-files-found: warn
 
       - name: Stop scan target
         if: always()

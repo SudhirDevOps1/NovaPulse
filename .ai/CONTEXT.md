@@ -173,7 +173,7 @@ green or a green run red.
 | typecheck (app) | `tsc --noEmit` | ✅ 0 errors |
 | typecheck (service worker) | `tsc --noEmit -p tsconfig.sw.json` | ✅ 0 errors |
 | lint | `eslint . --max-warnings=0` | ✅ 0 errors · 0 warnings |
-| unit/integration | `node --test` | ✅ 13 / 13 |
+| unit/integration | `node --test` | ✅ 19 / 19 |
 | e2e | `playwright test` | ✅ see §4 |
 | commit lint | `commitlint` | ✅ rejects non-conventional, unknown scopes |
 | production build | `node tools/gh-build.js` | ✅ emits `site/` |

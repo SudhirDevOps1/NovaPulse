@@ -112,7 +112,7 @@ Run local gates the way CI does, in this order:
 pnpm install --frozen-lockfile
 pnpm run typecheck     # L-26: 0 errors, both tsconfigs
 pnpm run lint          # L-27: 0 warnings
-pnpm test              # L-28: 13/13 today — read the "tests N" line
+pnpm test              # L-28: 19/19 today — read the "tests N" line
 pnpm run e2e           # required when public/ routes, headers or status page change
 pnpm run build         # static Pages bundle must emit site/
 ```

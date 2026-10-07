@@ -19,6 +19,59 @@ _None. The register is clear._
 
 ## 2 · Closed incidents
 
+### BUG-2026-0006 — Darwaza 2's DAST job could never enforce its policy
+
+| field | value |
+| --- | --- |
+| status | ✅ **CLOSED** — 2026-10-07 (local gate 19/19 green; CI verification pending the push) |
+| severity | **critical** — a security gate reported red for the wrong reason and never evaluated a single finding |
+| area | `.github/workflows/e2e-gate.yml` → `zap` job |
+| introduced | the original Darwaza 2 definition |
+| rule produced | `.ai/RULES.md` → **L-34** (state the absence of evidence loudly) |
+
+**Symptom**
+> Run on PR #1: job *OWASP ZAP baseline (DAST)* failed, annotation
+> `Resource not accessible by integration — POST /repos/…/issues` and
+> `Unexpected input(s) 'format', 'output_file'`. The job's own log said
+> `FAIL-NEW: 0 … WARN-NEW: 2` — yet *Evaluate ZAP findings against the policy*
+> shows **skipped**, and no ZAP artifact was produced.
+
+**Root cause** (three defects stacked into one misleading failure)
+
+1. `format` and `output_file` are **not inputs** of
+   `zaproxy/action-baseline@v0.12.0` — GitHub silently ignores them (it only
+   warns), so the report name the policy expected was never configured.
+2. The action files its report as an issue when `allow_issue_writing` is left
+   at its default `true`; this workflow's `permissions` deliberately hold no
+   `issues: write`, so the API call 403'd and **failed the scan step** — which
+   in turn skipped the policy step (`if: success()`).
+3. The policy step grepped `zap-baseline.conf`, a file **ZAP never writes**
+   (the action's outputs are `report_json.json` / `report_md.md` /
+   `report_html.html` + the `zap_scan` artifact), so even a successful scan
+   would have failed with "ZAP produced no report".
+
+The gate was red — but for infrastructure reasons, not security findings.
+
+**Fix**
+
+- Removed the two invalid inputs; set `allow_issue_writing: false` (the PR
+  gate reports in-job; **Darwaza 3** owns issue filing) and `artifact_name:
+  zap_scan`.
+- New `tools/zap-policy.js` evaluates `report_json.json`: risk 1–3 blocks,
+  risk 0 is a notice — the documented "any `W` fails, `I` is reported"
+  policy, now implemented against a file that actually exists. `if: always()`
+  so it reports even when the scan step breaks.
+- Upload step now names the real report files (`if-no-files-found: warn`).
+- Covered by 6 new specs in `test/zap-policy.test.js` (suite 13 → **19**);
+  counts synced across `.ai/`, `docs/`, `.agent/`.
+
+**Verification:** `pnpm run check` exit 0 — typecheck ×2, lint
+`--max-warnings=0`, **19/19 tests**, build; the two real ZAP findings
+(`WARN-NEW: 2`) are now surfaced as named, risk-classified rows in the step
+summary on the next run.
+
+---
+
 ### BUG-2026-0005 — Darwaza 1 rejected the release-please PR (`chore(main): …`)
 
 | field | value |

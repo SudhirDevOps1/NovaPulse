@@ -133,7 +133,7 @@ Run against the tree you are about to release; all boxes are mandatory
 **Gates**
 
 - [ ] **Darwaza 1** `ci.yml` green on `main` — job `gate` (typecheck, lint, test, build, docker, commitlint).
-- [ ] **Darwaza 2** `e2e-gate.yml` green for the release PR — Playwright desktop + mobile **and** ZAP baseline with zero `W` findings.
+- [ ] **Darwaza 2** `e2e-gate.yml` green for the release PR — Playwright desktop + mobile **and** ZAP baseline with zero blocking findings (risk 1–3).
 - [ ] **Darwaza 3** latest nightly `security-scan.yml` green (CodeQL error alerts = 0, Semgrep clean, npm audit high/critical = 0) and no open `security-nightly` issue. If it is stale/red, run it manually via `workflow_dispatch` and fix before releasing.
 - [ ] Local proof attached: `pnpm run typecheck`, `pnpm run lint`, `pnpm test` all exit 0.
 
