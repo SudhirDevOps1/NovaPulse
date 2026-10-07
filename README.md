@@ -26,6 +26,8 @@
 <br/>
 
 🌐 **[Live Status Page](https://sudhirdevops1.github.io/NovaPulse/status.html)** • 
+📘 **[Getting Started](docs/GETTING_STARTED.md)** • 
+🤝 **[Contributing](CONTRIBUTING.md)** • 
 📐 **[Architecture Guide](.ai/ARCHITECTURE.md)** • 
 📜 **[Golden Laws](.ai/RULES.md)** • 
 🐛 **[Bug Register](.ai/BUGS.md)** • 
@@ -94,7 +96,7 @@ flowchart TD
     end
 
     subgraph ModeB["Mode B: Self-Hosted Daemon (Docker / VPS / Local)"]
-        Daemon["⚡ Node.js Express 5 Daemon (index.js)"] --> Scheduler["⏱️ Dynamic In-Memory Scheduler"]
+        Daemon["⚡ Node.js Express 5 Daemon (server.js)"] --> Scheduler["⏱️ Dynamic In-Memory Scheduler"]
         Scheduler --> ProbeB["📡 Probe Engine (lib/probe.js)"]
         ProbeB --> Store["💾 Atomic File Storage (data/monitors.json)"]
         ProbeB --> NotifyB["🔔 Omni-Channel Alerts Engine"]
@@ -163,14 +165,20 @@ Dispatches instant notifications on state changes (`Down`, `Slow / Degraded`, an
 
 ### Option A: Serverless GitOps Mode (₹0 Forever, Zero Card) ⭐
 
-Run monitoring entirely on GitHub infrastructure. GitHub Actions runs checks on cron; GitHub Pages hosts the dashboard.
+Run monitoring entirely on GitHub infrastructure. GitHub Actions runs checks on cron; GitHub Pages hosts the dashboard. **Step-by-step with screenshots of every setting: [docs/GETTING_STARTED.md § Mode A](docs/GETTING_STARTED.md#4-mode-a--fork-and-deploy-on-github-0).**
 
-1. **Fork or push this repository to GitHub**:
+1. **Get your own copy**:
+   - **Fork it (recommended):** click **Fork** on GitHub, then in *your* fork open
+     **Actions → «I understand my workflows, go ahead and enable them»** and
+     **Settings → Pages → Source: `GitHub Actions`**. Forks do not inherit
+     secrets or settings, so add yours under **Settings → Secrets and variables
+     → Actions**.
+   - **Or start a brand-new repo from scratch:**
    ```bash
    git init -b main
    git add .
    git commit -m "feat: bootstrap novapulse"
-   git remote add origin https://github.com/SudhirDevOps1/NovaPulse.git
+   git remote add origin https://github.com/<your-user>/NovaPulse.git
    git push -u origin main
    ```
 2. **Enable GitHub Pages**:
@@ -246,7 +254,7 @@ fly deploy
 git clone https://github.com/SudhirDevOps1/NovaPulse.git /opt/novapulse
 cd /opt/novapulse
 pnpm install --prod
-pm2 start index.js --name "novapulse" -i 1
+pm2 start ecosystem.config.js   # the entry file is server.js; the config pins instances: 1
 pm2 save && pm2 startup
 ```
 </details>
@@ -360,10 +368,18 @@ curl -X POST "http://localhost:3000/api/import?mode=replace" \
 
 ## 🤝 Contributing & Governance
 
+Full walkthrough: **[CONTRIBUTING.md](CONTRIBUTING.md)** · user manual: **[docs/GETTING_STARTED.md](docs/GETTING_STARTED.md)**
+
 Contributions are welcome! Please follow our established quality guidelines:
 - 📜 **Master Governance Laws**: [`.ai/RULES.md`](.ai/RULES.md)
 - 📝 **Conventional Commits**: Enforced via `commitlint` (`feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`)
-- ✅ **Verification**: Run `pnpm run check` locally before submitting pull requests.
+- ✅ **Verification**: `pnpm run verify` locally before opening a PR — that is
+  `pnpm run check` (typecheck ×2, lint at 0 warnings, tests, build) **plus**
+  `pnpm run e2e` (26 specs; run `pnpm e2e:install` once first).
+- 🚪 **Merge gate**: `main` is branch-protected — PRs only, no force pushes, and
+  four required checks must be green: `gate`, `Playwright E2E (desktop + mobile)`,
+  `OWASP ZAP baseline (DAST)`, `SonarQube scan + quality gate notification`.
+  No approvals are required, so you can merge your own green PR.
 
 ---
 
