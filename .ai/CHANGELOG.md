@@ -78,6 +78,10 @@
   before clicking nav links, use exact label matching, reset server state
   through the `request` fixture, and address the topbar CTA by id
   ([BUG-2026-0003](BUGS.md))
+* **ci:** fix the release-please schema rejection and make both failing
+  workflows self-diagnosing — Pages preflight with the exact UI path, a
+  failure-time cause list for release-please
+  ([BUG-2026-0004](BUGS.md))
 * **ci:** ignore Playwright/ZAP/Sonar/coverage artefacts in `.gitignore`
 * **docs:** close the NOW-7 doc-drift sweep — `CONTEXT.md` re-derived (13
   specs / 6 workflows / 13 tests), `docs/` exists with `RULES`·`SECURITY`·

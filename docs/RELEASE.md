@@ -29,7 +29,7 @@
 | `packages["."].extra-files` | `[{type: json, path: package.json, jsonpath: $.version}]` | keeps `package.json` `version` in step with the manifest |
 | `sequential-calls` | `false` | GitHub API calls are batched |
 | `group-pull-request-title-pattern` | `chore${scope}: release${component} ${version}` | the release PR title pattern |
-| `release-please.bootstrap-sha` | `""` | empty — history is taken from existing tags/commits |
+| `$schema` | `.../release-please/main/schemas/config.json` | the config is schema-validated; the schema is `additionalProperties: false`, so **only documented top-level keys are allowed** — an extra key fails the workflow (this actually happened with a `release-please.bootstrap-sha` block and was removed 2026-10-07) |
 
 Both files are edited **only by the bot**. Hand-editing them or the generated
 changelog entries will be overwritten on the next release.

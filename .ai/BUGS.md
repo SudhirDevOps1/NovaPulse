@@ -19,6 +19,63 @@ _None. The register is clear._
 
 ## 2 · Closed incidents
 
+### BUG-2026-0004 — Release workflow failed on every push; Monitor could not deploy
+
+| field | value |
+| --- | --- |
+| status | ✅ **CLOSED** — 2026-10-07 (release config fixed + preflights added; the Pages toggle itself is a repo setting, see below) |
+| severity | **high** (two of the four push-triggered workflows were permanently red) |
+| area | `release-please-config.json`, `.github/workflows/{monitor,release}.yml` |
+| introduced | first push of the pipeline (`2f6c76b`) |
+| rule produced | `.ai/RULES.md` → **L-34** (a gate must state its own absence, never fake a pass) |
+
+**Symptom (as observed on GitHub Actions)**
+> On push `c3ebf06`: *Release (release-please v4)* → **failure** at step
+> *Run release-please*; *Monitor* → **failure** at step *Setup Pages*.
+> *Darwaza 1* and *Sonar* passed.
+
+**Root cause — two independent faults, both reproduced from evidence**
+
+1. **Release:** `release-please-config.json` carried a nested
+   `"release-please": { "bootstrap-sha": "" }` key. The published schema
+   (`schemas/config.json`) sets **`additionalProperties: false`** at the
+   top level, so release-please rejects the whole file during validation and
+   the step dies before any PR logic runs. Verified by fetching the schema and
+   diffing its allowed keys against ours (`release-please` was the only
+   unknown key; `bootstrap-sha` is legal only as a *top-level* key).
+2. **Monitor:** the Pages API answered **HTTP 404** — the repository has no
+   Pages site, and `actions/configure-pages` cannot create one with the
+   default `GITHUB_TOKEN` (its `enablement` input explicitly requires a PAT
+   or GitHub App token). The workflow therefore failed at *Setup Pages* with
+   a message that named neither the cause nor the fix.
+
+**Fix**
+
+- Removed the invalid `release-please` block, added `$schema` to the config
+  so editors and CI validate it against the real schema.
+- `monitor.yml` now has a **preflight step** that calls the Pages API first
+  and, on 404, fails with the exact UI path
+  (*Settings → Pages → Build and deployment → Source: GitHub Actions*) as an
+  `::error` annotation **and** a step summary — same doctrine as Sonar.
+- `release.yml` gained a `if: failure()` **Diagnose** step naming the three
+  causes actually seen (schema rejection, the "Allow GitHub Actions to
+  create and approve pull requests" toggle, non-Conventional commits).
+- README §GitOps documents both repository toggles as numbered setup steps.
+
+**Verification**
+
+- All 6 workflows parse (`js-yaml`), config parses as JSON and its keys are
+  a subset of the schema's allowed properties.
+- Re-run after push: Release workflow must pass; Monitor will still require
+  the operator to enable Pages once (documented in the failing step's own
+  summary).
+
+**Law it reinforces:** **L-34** — when a required capability is absent the
+pipeline must say so loudly with the remediation path, never degrade into a
+silent or misleading result.
+
+---
+
 ### BUG-2026-0001 — Save produced no notification and no save at all
 
 | field | value |

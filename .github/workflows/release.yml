@@ -64,3 +64,23 @@ jobs:
             echo "- release PR: ${PR:-none}"
             echo "- tags: \`${TAGS:-none}\`"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # A silent red run teaches nothing; name the three causes we have
+      # actually seen so the next failure is a two-click fix.
+      - name: Diagnose failure
+        if: failure()
+        run: |
+          {
+            echo "## release-please failed — likely causes"
+            echo ""
+            echo "1. \`release-please-config.json\` rejected by schema validation"
+            echo "   (the schema is \`additionalProperties: false\`: only the documented top-level keys are allowed)."
+            echo "2. **Settings → Actions → General → Workflow permissions** does not allow"
+            echo "   Actions to open pull requests — the action then gets a 403 on \`POST /pulls\`."
+            echo "   Enable *\"Allow GitHub Actions to create and approve pull requests\"*."
+            echo "3. A commit on \`main\` that is not a valid Conventional Commit"
+            echo "   (see \`commitlint.config.mjs\`); release-please skips it silently, which shows up"
+            echo "   as a missing release rather than an error."
+            echo ""
+            echo "Open the failing step log for the exact error text."
+          } >> "$GITHUB_STEP_SUMMARY"

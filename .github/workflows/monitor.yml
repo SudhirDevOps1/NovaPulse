@@ -91,6 +91,36 @@ jobs:
       - name: Build static site
         run: node tools/gh-build.js
 
+      # actions/configure-pages cannot enable the site with the default
+      # GITHUB_TOKEN (its `enablement` input needs a PAT or GitHub App token),
+      # so ask the Pages API first and fail with the exact UI path instead of
+      # the cryptic "Get Pages site failed" that configure-pages throws.
+      - name: Verify Pages source is "GitHub Actions"
+        shell: bash
+        run: |
+          tmp="$RUNNER_TEMP/pages.json"
+          code=$(curl -sS -o "$tmp" -w '%{http_code}' \
+            -H "Authorization: Bearer ${{ github.token }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/pages")
+          if [ "$code" = "200" ]; then
+            build_type=$(node -e "console.log(JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).build_type ?? 'unknown')" "$tmp")
+            echo "Pages is enabled — build_type=$build_type"
+            exit 0
+          fi
+          {
+            echo "Pages API answered HTTP $code — the site does not exist, so this run cannot deploy."
+            echo "Fix: repository Settings → Pages → Build and deployment → Source: 'GitHub Actions'."
+          } >&2
+          echo "::error title=GitHub Pages is not enabled::Settings → Pages → Build and deployment → Source must be 'GitHub Actions' (Pages API HTTP $code). See the header of .github/workflows/monitor.yml."
+          {
+            echo "## Monitor: GitHub Pages is not enabled"
+            echo ""
+            echo "The Pages API answered **HTTP $code**, so \`actions/configure-pages\` cannot build or deploy the status site."
+            echo "Set **Settings → Pages → Build and deployment → Source: \`GitHub Actions\`** and re-run this workflow."
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
