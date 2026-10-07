@@ -1,0 +1,6 @@
+# Darwaza 0 — local pre-commit gate.
+# Mirrors `.github/workflows/ci.yml` so a commit that would fail CI never
+# lands in the first place. Both commands must exit 0.
+
+npm run typecheck
+npm run lint

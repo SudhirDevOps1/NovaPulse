@@ -1,0 +1,76 @@
+# Dependabot — grouped, so a PR storm never drowns the real review queue.
+# Security updates arrive on their own schedule and are never grouped away.
+version: 2
+updates:
+  # --- runtime dependencies (Express/compression): reviewed with extra care ---
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:30"
+      timezone: "Asia/Kolkata"
+    open-pull-requests-limit: 5
+    versioning-strategy: increase
+    groups:
+      runtime-minor-patch:
+        dependency-type: production
+        update-types:
+          - "minor"
+          - "patch"
+        # majors are never grouped — each gets its own PR with its own changelog
+      runtime-major:
+        dependency-type: production
+        update-types:
+          - "major"
+    labels:
+      - dependencies
+      - runtime
+    commit-message:
+      prefix: "chore"
+      scope: "deps"
+    reviewers:
+      - "SudhirDevOps1"
+
+  # --- dev tooling (eslint/typescript/commitlint/husky): low risk, grouped ---
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:45"
+      timezone: "Asia/Kolkata"
+    open-pull-requests-limit: 5
+    versioning-strategy: increase
+    groups:
+      dev-tooling:
+        dependency-type: development
+        update-types:
+          - "minor"
+          - "patch"
+    labels:
+      - dependencies
+      - dev-dependencies
+    commit-message:
+      prefix: "chore"
+      scope: "deps"
+
+  # --- GitHub Actions: keeps the 3 Darwaza gates on current major versions ---
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: "Asia/Kolkata"
+    open-pull-requests-limit: 5
+    groups:
+      actions:
+        patterns:
+          - "*"
+    labels:
+      - dependencies
+      - ci
+    commit-message:
+      prefix: "ci"
+      scope: "ci"

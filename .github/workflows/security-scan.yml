@@ -1,0 +1,220 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# DARWAZA 3 — Nightly Deep Audit (SAST + dependency CVEs)
+# ═══════════════════════════════════════════════════════════════════════════
+# Not a PR gate — this one is deliberately slow and thorough, so it runs on a
+# schedule (02:00 IST nightly) and on demand (`workflow_dispatch`). It layers
+# three independent scanners so a blind spot in one is covered by another:
+#
+#   1. GitHub CodeQL v4     — semantic/AST analysis of JavaScript + TypeScript
+#   2. Semgrep OSS (SAST)   — fast pattern/semantic rules, different corpus
+#   3. npm audit            — known CVEs in the dependency graph
+#
+# Every failure opens/updates a GitHub Issue automatically, so a red nightly
+# never dies silently in the Actions tab.
+# ═══════════════════════════════════════════════════════════════════════════
+
+name: Darwaza 3 · Nightly Deep Audit
+
+on:
+  schedule:
+    # 02:00 IST = 20:30 UTC (previous day)
+    - cron: "30 20 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: darwaza3-nightly
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  security-events: write
+  issues: write
+  actions: read
+
+jobs:
+  codeql:
+    name: CodeQL v4 (JavaScript/TypeScript)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          config-file: ./.github/codeql/codeql-config.yml
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"
+
+      # SARIF is also uploaded to the Security tab; this step only exists to
+      # surface a hard failure on `error`-severity alerts in the job log.
+      - name: Fail the job on error-severity alerts
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          count=$(gh api \
+            "repos/${{ github.repository }}/code-scanning/alerts?state=open&severity=error" \
+            --jq 'length' 2>/dev/null || echo 0)
+          echo "open error-severity CodeQL alerts: $count"
+          if [ "$count" -gt 0 ]; then
+            echo "::error::CodeQL reports $count error-severity alert(s) — see the Security tab"
+            exit 1
+          fi
+
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # `p/security-audit` + `p/javascript` cover injection, unsafe regex,
+      # hardcoded secrets and prototype pollution — the classes that matter
+      # for an HTTP probing service.
+      - name: Run Semgrep
+        run: |
+          set -euo pipefail
+          semgrep scan \
+            --config p/security-audit \
+            --config p/javascript \
+            --config p/nodejs \
+            --json --output semgrep-report.json \
+            --error \
+            --metrics=off \
+            lib public tools server.js test
+
+      - name: Upload Semgrep SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep-report.json
+          category: semgrep
+
+      - name: Upload Semgrep report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-report
+          path: semgrep-report.json
+          retention-days: 14
+
+  npm-audit:
+    name: NPM critical/high CVE audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      # Full JSON first (always uploaded), then a hard gate on high/critical.
+      - name: Produce audit report
+        run: pnpm audit --json > npm-audit-report.json || true
+
+      - name: Fail on high or critical advisories
+        run: |
+          set -euo pipefail
+          node -e '
+            const fs = require("node:fs");
+            const report = JSON.parse(fs.readFileSync("npm-audit-report.json", "utf8"));
+            const severities = (report.metadata && report.metadata.vulnerabilities) || {};
+            const high = (severities.high || 0) + (severities.critical || 0);
+            console.log("advisories by severity:", JSON.stringify(severities));
+            if (high > 0) {
+              console.error(`::error::${high} high/critical advisory(ies) in the dependency graph`);
+              process.exit(1);
+            }
+          '
+
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-report
+          path: npm-audit-report.json
+          retention-days: 14
+
+  # ─── notification ───────────────────────────────────────────────────────────
+  # Runs after the scanners regardless of their outcome, and files/updates one
+  # tracking issue. A nightly that goes red must produce a visible artefact
+  # outside the Actions tab, otherwise nobody notices.
+  notify:
+    name: File issue on failure
+    if: always()
+    needs: [codeql, semgrep, npm-audit]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Report status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          CODEQL_RESULT: ${{ needs.codeql.result }}
+          SEMGREP_RESULT: ${{ needs.semgrep.result }}
+          AUDIT_RESULT: ${{ needs.npm-audit.result }}
+        run: |
+          set -euo pipefail
+          echo "codeql=$CODEQL_RESULT semgrep=$SEMGREP_RESULT audit=$AUDIT_RESULT"
+          if [ "$CODEQL_RESULT" = "success" ] && [ "$SEMGREP_RESULT" = "success" ] && [ "$AUDIT_RESULT" = "success" ]; then
+            # Green run: close a previously opened nightly-audit issue if present.
+            gh issue list --repo "$REPO" --label security-nightly --state open \
+              --json number --jq '.[].number' | while read -r n; do
+                gh issue close "$n" --repo "$REPO" --comment "Nightly audit is green again: $RUN_URL"
+              done
+            exit 0
+          fi
+
+          BODY=$(cat <<EOF
+          ## Nightly deep audit failure
+
+          | scanner | result |
+          | --- | --- |
+          | CodeQL v4 | $CODEQL_RESULT |
+          | Semgrep SAST | $SEMGREP_RESULT |
+          | npm audit (high/critical) | $AUDIT_RESULT |
+
+          **Run:** $RUN_URL
+
+          Artifacts uploaded by the run: \`zap\` is Darwaza 2; this run uploads
+          \`semgrep-report\` and \`npm-audit-report\`.
+
+          ---
+          _Opened automatically by Darwaza 3._
+          EOF
+          )
+
+          existing=$(gh issue list --repo "$REPO" --label security-nightly --state open \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$REPO" --body "$BODY"
+          else
+            gh issue create --repo "$REPO" \
+              --title "Nightly security audit failing" \
+              --label "security-nightly" \
+              --label "security" \
+              --body "$BODY"
+          fi

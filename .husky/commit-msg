@@ -1,0 +1,3 @@
+# Conventional Commits are mandatory — release-please derives the version bump
+# and the changelog from these messages, so a bad message = a bad release.
+npx --no -- commitlint --edit "$1"

@@ -1,0 +1,177 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# DARWAZA 2 — Heavy PR Gate (E2E + DAST)
+# ═══════════════════════════════════════════════════════════════════════════
+# Runs against Pull Requests that target `main`, after Darwaza 1 has already
+# proven the code compiles, lints and passes unit tests. This gate answers the
+# two questions Darwaza 1 cannot:
+#
+#   1. Does the real UI actually work end-to-end in a browser?
+#      → Playwright, Desktop + Mobile viewports, artifacts on failure.
+#   2. Does the running app leak anything an attacker can use?
+#      → OWASP ZAP baseline scan (passive, safe — no active exploitation).
+#
+# ZAP baseline is PASSIVE by design: it replays the app's own traffic and
+# reports header/cookie/CSP/information-disclosure findings. It never sends
+# attack payloads, so it is safe to run against a freshly built container.
+# ═══════════════════════════════════════════════════════════════════════════
+
+name: Darwaza 2 · Heavy PR Gate
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: darwaza2-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  e2e:
+    name: Playwright E2E (desktop + mobile)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      # The server is started by playwright.config.mjs `webServer`, pointed at
+      # an isolated temp data dir so E2E never touches a real monitors.json.
+      - name: Run E2E suite
+        run: pnpm run e2e
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 14
+          if-no-files-found: ignore
+
+  zap:
+    name: OWASP ZAP baseline (DAST)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      # Build the image and run it with a throwaway data volume — the scan
+      # target is a genuinely production-shaped container, not `node server.js`
+      # on the runner's host network.
+      - name: Build scan target image
+        run: docker build -t novapulse-zap .
+
+      - name: Start scan target
+        run: |
+          set -euo pipefail
+          docker run -d --name target \
+            -e NODE_ENV=production \
+            -e UPTIME_DATA_DIR=/app/data \
+            -p 3000:3000 \
+            novapulse-zap
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:3000/api/health >/dev/null; then
+              echo "target healthy after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::target container never became healthy"
+          docker logs target
+          exit 1
+
+      - name: Seed a monitor so ZAP crawls a populated UI
+        run: |
+          set -euo pipefail
+          curl -fsS -X POST http://localhost:3000/api/monitors \
+            -H 'content-type: application/json' \
+            -d '{"name":"ZAP seed","url":"https://example.com","intervalSec":60}' >/dev/null
+          # enable the public status page — it is an unauthenticated attack surface
+          curl -fsS -X PATCH http://localhost:3000/api/settings \
+            -H 'content-type: application/json' \
+            -d '{"statusPage":{"enabled":true,"title":"Status","message":"live"}}' >/dev/null
+
+      # ghcr.io/zaproxy/zaproxy:stable is the official image; `baseline` is the
+      # passive quick-scan. `-I` follows the API/monitor/authenticated-free
+      # surfaces; the report is always uploaded, pass or fail.
+      - name: Run ZAP baseline scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: 'http://localhost:3000'
+          format: full
+          output_file: zap-baseline.conf
+          rules_file_name: zap-baseline.rules
+          issue_title: ZAP baseline report
+          fail_action: false # report first; the job below enforces the policy
+        env:
+          # The container must reach the target; the action runs in its own net.
+          CI: true
+
+      - name: Evaluate ZAP findings against the policy
+        # Baseline output is a config file of `ruleID risk W|I|N` lines.
+        # Policy: any WARN-level (W) finding fails the gate; INFO (I) is
+        # reported but non-blocking. This keeps the gate real without making
+        # it un-actionable on informational notes such as Server header leaks.
+        run: |
+          set -euo pipefail
+          if [ ! -f zap-baseline.conf ]; then
+            echo "::error::ZAP produced no report — treating as failure"
+            exit 1
+          fi
+          warns=$(grep -cE '^[0-9]+ +[0-9]+ +W' zap-baseline.conf || true)
+          infos=$(grep -cE '^[0-9]+ +[0-9]+ +I' zap-baseline.conf || true)
+          echo "ZAP warnings: $warns  info: $infos"
+          if [ "$warns" -gt 0 ]; then
+            echo "::error::ZAP baseline reported $warns warning-level finding(s)"
+            grep -E '^[0-9]+ +[0-9]+ +W' zap-baseline.conf
+            exit 1
+          fi
+
+      - name: Upload ZAP report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-baseline-report
+          path: |
+            zap-baseline.conf
+            zap-baseline.rules
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Stop scan target
+        if: always()
+        run: docker rm -f target || true

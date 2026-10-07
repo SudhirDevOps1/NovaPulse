@@ -1,0 +1,27 @@
+{
+	"packages": {
+		".": {
+			"release-type": "node",
+			"package-name": "novapulse",
+			"changelog-path": ".ai/CHANGELOG.md",
+			"include-component-in-tag": false,
+			"bump-minor-pre-major": false,
+			"bump-patch-for-minor-pre-major": false,
+			"draft": false,
+			"prerelease": false,
+			"separate-pull-requests": false,
+			"extra-files": [
+				{
+					"type": "json",
+					"path": "package.json",
+					"jsonpath": "$.version"
+				}
+			]
+		}
+	},
+	"sequential-calls": false,
+	"group-pull-request-title-pattern": "chore${scope}: release${component} ${version}",
+	"release-please": {
+		"bootstrap-sha": ""
+	}
+}

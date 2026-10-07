@@ -1,0 +1,66 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# RELEASE GATE — Google release-please v4 (automated semantic versioning)
+# ═══════════════════════════════════════════════════════════════════════════
+# release-please does not guess: it parses every Conventional Commit merged to
+# `main` since the last release tag and derives the next version from them
+# (`feat` → minor, `fix` → patch, `BREAKING CHANGE` → major).
+#
+# What it maintains on your behalf:
+#   * .release-please-manifest.json  — the "last released version" bookkeeping
+#   * release-please-config.json     — which package, which changelog path
+#   * .ai/CHANGELOG.md               — grouped, human-readable release log
+#   * package.json `version`         — bumped by the `json` extra-file
+#   * a git tag + GitHub Release     — created when the release PR merges
+#
+# This workflow only opens/updates the release PR. It is intentionally
+# decoupled from Darwazas 1 and 2: the PR it opens is an ordinary PR, so it
+# still has to clear both gates before it can merge. Nothing is ever tagged
+# without a green CI.
+# ═══════════════════════════════════════════════════════════════════════════
+
+name: Release (release-please v4)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    name: Open or update the release PR
+    runs-on: ubuntu-latest
+    # `release: write` is required for creating tags/releases; the token must
+    # be the default one so the release PR triggers CI like any other PR.
+    steps:
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      # surface the outcome in the run log — useful when a release PR is not
+      # appearing and the cause is an unparseable commit message.
+      - name: Summarise
+        env:
+          RELEASES: ${{ steps.release.outputs.releases_created }}
+          PR: ${{ steps.release.outputs.pr }}
+          TAGS: ${{ steps.release.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## release-please"
+            echo ""
+            echo "- release created: \`${RELEASES:-false}\`"
+            echo "- release PR: ${PR:-none}"
+            echo "- tags: \`${TAGS:-none}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

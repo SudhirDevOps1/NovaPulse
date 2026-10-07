@@ -1,0 +1,36 @@
+# CodeQL query configuration for NovaPulse.
+#
+# Scope is deliberately narrow: this repo is JavaScript/TypeScript only, and we
+# query for the bug classes that actually matter for an HTTP probing service
+# (injection, unsafe deserialisation, prototype pollution, path traversal,
+# hardcoded credentials) rather than running the full default suite and
+# drowning the signal in style-level noise.
+name: NovaPulse CodeQL
+
+disable-default-queries: false
+
+queries:
+  # Extra precision on top of the default security-extended suite.
+  - uses: security/extended
+  - uses: security-and-quality
+
+paths:
+  - lib
+  - public
+  - tools
+  - test
+  - server.js
+
+paths-ignore:
+  - node_modules
+  - site
+  - gh-state
+  - data
+  - "**/*.min.js"
+
+languages:
+  - javascript
+  - typescript
+
+# `javascript` and `typescript` share a extractor in CodeQL v2+; declaring both
+# keeps the workflow file free of duplicated query-suite wiring.

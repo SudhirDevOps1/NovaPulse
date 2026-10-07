@@ -5,3 +5,15 @@ data/*.json
 .env
 site/
 gh-state/
+
+# ── test / scan artefacts (never committed) ──────────────────────────────
+playwright-report/
+test-results/
+e2e/.tmp-data/
+coverage/
+zap-baseline.conf
+zap-baseline.rules
+semgrep-report.json
+npm-audit-report.json
+sonar-quality-gate.json
+.scannerwork/

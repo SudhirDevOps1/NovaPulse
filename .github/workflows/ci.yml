@@ -1,45 +1,157 @@
-name: CI
+# ═══════════════════════════════════════════════════════════════════════════
+# DARWAZA 1 — Fast PR Gate (merge blocker)
+# ═══════════════════════════════════════════════════════════════════════════
+# Every Pull Request and every push to `main` must clear this gate before it
+# can merge. It is intentionally the cheapest of the three darwazas so it
+# fails in seconds, not minutes:
+#
+#   install → typecheck → lint → unit/integration tests → production build
+#
+# Any red step blocks the merge (branch protection: "Require status checks
+# to pass before merging" → `gate` job).
+#
+# Deliberate choices:
+#   * Node 20/22/24 matrix — the repo declares ">=18"; 20/22/24 are the
+#     maintained lines, so an engine-specific regression is caught here.
+#   * Docker build runs as a sibling job so a broken Dockerfile fails in CI
+#     instead of on the server.
+#   * `--max-warnings=0` on eslint: a warning is treated as a failure.
+# ═══════════════════════════════════════════════════════════════════════════
+
+name: Darwaza 1 · Fast PR Gate
 
 on:
   push:
     branches: [main]
   pull_request:
+    branches: [main]
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: darwaza1-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
-  test:
-    name: Test (Node ${{ matrix.node }})
+  quality:
+    name: Quality gate (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         node: [20, 22, 24]
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      # version is read from "packageManager" in package.json
-      - uses: pnpm/action-setup@v4
+      # Version is read from the "packageManager" field in package.json.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
           cache: pnpm
 
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm test
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck (tsc --noEmit, 0 errors)
+        run: pnpm run typecheck
+
+      - name: Lint (eslint ., 0 warnings)
+        run: pnpm run lint
+
+      - name: Unit & integration tests
+        run: pnpm test
+
+      - name: Production build (static Pages bundle)
+        run: pnpm run build
+
+      - name: Assert build output exists
+        run: pnpm run build:check
 
   docker:
     name: Docker build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image (no push — validates Dockerfile only)
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  commitlint:
+    name: Conventional commit lint
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history so the PR base commit is available
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      # Every commit in the PR must be Conventional — release-please parses
+      # them to compute the next semver bump and to write CHANGELOG.md.
+      - name: Lint PR commits
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=0 origin "$BASE_SHA"
+          fails=0
+          while read -r sha; do
+            [ -z "$sha" ] && continue
+            printf 'checking %s\n' "$sha"
+            if ! printf '%s\n' "$(git log -1 --format=%B "$sha")" | npx --no -- commitlint; then
+              fails=1
+            fi
+          done <<< "$(git rev-list "$BASE_SHA..$HEAD_SHA")
+          exit "$fails"
+
+  # Single required check for branch protection — it only passes when every
+  # job above passed, so the required-status-check list stays stable even if
+  # individual matrix legs are added or removed later.
+  gate:
+    name: gate
+    if: always()
+    needs: [quality, docker, commitlint]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail unless every prerequisite succeeded
+        env:
+          RESULTS: ${{ join(needs.*.result, ',') }}
+        run: |
+          set -euo pipefail
+          echo "results: $RESULTS"
+          case "$RESULTS" in
+            *failure*|*cancelled*) exit 1 ;;
+          esac
+          # skipped jobs (e.g. commitlint on a plain push) are acceptable
+          case "$RESULTS" in
+            *success*) exit 0 ;;
+            *) exit 1 ;;
+          esac

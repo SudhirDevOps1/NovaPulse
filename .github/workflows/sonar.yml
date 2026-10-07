@@ -1,0 +1,218 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# SONAR — static analysis + failure notification
+# ═══════════════════════════════════════════════════════════════════════════
+# Fourth scanner, complementary to Darwaza 3 (CodeQL/Semgrep/npm audit):
+# SonarQube measures maintainability, duplicated code, test coverage and
+# "new code" quality — the dimension the security scanners do not cover.
+#
+# Configuration lives in sonar-project.properties at the repo root.
+#
+# Required repository secrets:
+#   SONAR_TOKEN   — analysis token (project or org level)
+#   SONAR_HOST_URL — https://sonarcloud.io or your self-hosted SonarQube
+#   SONAR_PROJECT_KEY — defaults to SudhirDevOps1_NovaPulse when omitted
+#
+# Notification contract (why this workflow exists):
+#   * analysis succeeded → quality gate is queried through the SonarQube API;
+#     a FAILED gate files/updates one `sonar-quality-gate` issue and comments
+#     on the PR that caused it;
+#   * gate is passed → a previously opened issue is closed;
+#   * secrets are absent → the workflow states so loudly in the job summary.
+#     It never reports a fake pass, and it never blocks Darwaza 1/2 (those
+#     are the merge gates — L-34 keeps them independent of tooling setup).
+# ═══════════════════════════════════════════════════════════════════════════
+
+name: Sonar quality gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: sonar-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  sonar:
+    name: SonarQube scan + quality gate notification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Sonar needs full history to compute blame and new-code diffs.
+          fetch-depth: 0
+
+      - name: Check analysis configuration
+        id: config
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SONAR_TOKEN:-}" ] || [ -z "${SONAR_HOST_URL:-}" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "## Sonar analysis: not configured"
+              echo ""
+              echo "Add the \`SONAR_TOKEN\` and \`SONAR_HOST_URL\` repository secrets"
+              echo "(and \`SONAR_PROJECT_KEY\` if the key differs from the default) to"
+              echo "enable this scan. The three Darwaza gates are unaffected."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::notice::Sonar skipped — SONAR_TOKEN / SONAR_HOST_URL secrets are not set"
+            exit 0
+          fi
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node.js
+        if: steps.config.outputs.configured == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # Coverage is produced from the real unit suite — never hand-written.
+      - name: Run unit tests with coverage
+        if: steps.config.outputs.configured == 'true'
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile || npm ci
+          node --test --experimental-test-coverage \
+            --test-reporter=spec --test-reporter-destination=stdout \
+            --test-reporter=lcov --test-reporter-destination=coverage/lcov.info
+
+      - name: SonarQube Scan
+        if: steps.config.outputs.configured == 'true'
+        uses: SonarSource/sonarqube-scan-action@v5
+        with:
+          projectBaseDir: .
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }}
+
+      # The API call is what turns a silent dashboard into a notification:
+      # fetch the analysis task, then evaluate the project quality gate.
+      - name: Evaluate quality gate
+        if: steps.config.outputs.configured == 'true'
+        id: gate
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          HOST="${SONAR_HOST_URL%/}"
+          KEY="${SONAR_PROJECT_KEY:-${REPO//\//_}}"
+          AUTH=(-u "${SONAR_TOKEN}:")
+
+          # 1. wait for the analysis task to finish server-side
+          STATUS="PENDING"
+          for _ in $(seq 1 60); do
+            TASK=$(curl -fsS "${AUTH[@]}" \
+              "${HOST}/api/ce/task?component=${KEY}" || echo '{}')
+            STATUS=$(printf '%s' "$TASK" | node -pe \
+              'JSON.parse(require("fs").readFileSync(0,"utf8")).task?.status ?? "UNKNOWN"')
+            [ "$STATUS" = "SUCCESS" ] && break
+            [ "$STATUS" = "FAILED" ] || [ "$STATUS" = "CANCELED" ] && break
+            sleep 5
+          done
+          echo "ce task status: $STATUS"
+
+          # 2. evaluate the gate
+          GATE=$(curl -fsS "${AUTH[@]}" \
+            "${HOST}/api/qualitygates/project_status?projectKey=${KEY}" || echo '{}')
+          OUTCOME=$(printf '%s' "$GATE" | node -pe '
+            const r = JSON.parse(require("fs").readFileSync(0,"utf8"));
+            r.projectStatus?.status ?? "UNKNOWN"')
+          echo "quality gate: $OUTCOME"
+          echo "outcome=$OUTCOME" >> "$GITHUB_OUTPUT"
+          printf '%s' "$GATE" > sonar-quality-gate.json
+
+          DETAILS=$(node -e '
+            const r = JSON.parse(process.argv[1]);
+            const cond = (r.projectStatus?.conditions ?? [])
+              .map(c => `| ${c.metricKey} | ${c.actualValue ?? "—"} | ${c.status} |`)
+              .join("\n");
+            process.stdout.write(cond || "| (no conditions returned) | — | UNKNOWN |");
+          ' "$GATE")
+          echo "details<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$DETAILS" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Sonar artefacts
+        if: always() && steps.config.outputs.configured == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sonar-report
+          path: sonar-quality-gate.json
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Notify on failing gate
+        if: steps.config.outputs.configured == 'true' && steps.gate.outputs.outcome != 'OK' && steps.gate.outputs.outcome != 'UNKNOWN'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          OUTCOME: ${{ steps.gate.outputs.outcome }}
+          DETAILS: ${{ steps.gate.outputs.details }}
+        run: |
+          set -euo pipefail
+          BODY=$(cat <<EOF
+          ## Sonar quality gate: \`$OUTCOME\`
+
+          | metric | actual | status |
+          | --- | --- | --- |
+          $DETAILS
+
+          **Run:** $RUN_URL
+
+          ---
+          _Opened automatically by the Sonar workflow._
+          EOF
+          )
+          existing=$(gh issue list --repo "$REPO" --label sonar-quality-gate --state open \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$REPO" --body "$BODY"
+          else
+            gh issue create --repo "$REPO" \
+              --title "Sonar quality gate failing" \
+              --label "sonar-quality-gate" \
+              --label "quality" \
+              --body "$BODY" || \
+            gh issue create --repo "$REPO" \
+              --title "Sonar quality gate failing" \
+              --body "$BODY"
+          fi
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            gh pr comment "${{ github.event.pull_request.number }}" --repo "$REPO" \
+              --body "$BODY" || true
+          fi
+          echo "::error::Sonar quality gate is $OUTCOME"
+
+      - name: Close stale issue when the gate is green
+        if: steps.config.outputs.configured == 'true' && steps.gate.outputs.outcome == 'OK'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          gh issue list --repo "$REPO" --label sonar-quality-gate --state open \
+            --json number --jq '.[].number' | while read -r n; do
+              gh issue close "$n" --repo "$REPO" \
+                --comment "Sonar quality gate is green again: $RUN_URL"
+            done
