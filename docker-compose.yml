@@ -1,0 +1,41 @@
+# Single-service stack: one container, one persistent volume for data/monitors.json.
+#
+#   docker compose up -d --build
+#
+# Environment values are read from .env (see .env.example).
+services:
+  kestrel:
+    build: .
+    image: kestrel:latest
+    container_name: kestrel
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "3000"
+      UPTIME_DATA_DIR: /app/data
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      TRUST_PROXY: ${TRUST_PROXY:-loopback}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-240}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+    volumes:
+      # Named volume keeps monitors.json across restarts and image rebuilds.
+      # To manage the file yourself, replace it with a bind mount: ./data:/app/data
+      - uptime-data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+volumes:
+  uptime-data:

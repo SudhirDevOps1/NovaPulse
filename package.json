@@ -1,0 +1,23 @@
+{
+	"name": "kestrel",
+	"version": "3.0.0",
+	"description": "Kestrel — production-grade self-hosted uptime monitoring: percentile analytics, SSL/TCP checks, status pages, badges and alerts.",
+	"main": "server.js",
+	"private": true,
+	"packageManager": "pnpm@12.9.1",
+	"scripts": {
+		"start": "node server.js",
+		"dev": "node --watch server.js",
+		"test": "node --test",
+		"gh:check": "node tools/gh-check.js",
+		"gh:build": "node tools/gh-build.js"
+	},
+	"engines": {
+		"node": ">=18"
+	},
+	"license": "MIT",
+	"dependencies": {
+		"compression": "^1.8.1",
+		"express": "^5.2.1"
+	}
+}

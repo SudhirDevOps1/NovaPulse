@@ -1,0 +1,98 @@
+# Plan A — serverless uptime monitoring (₹0, no credit card, never sleeps).
+#
+#  schedule (every 5 min) → tools/gh-check.js probes every monitor in
+#                           config/monitors.json, records history, fires Telegram
+#                           alerts, then force-pushes state to the `state`
+#                           branch (a single commit — the repo never grows).
+#  any run                → tools/gh-build.js rebuilds site/ from the fresh
+#                           state and deploys it to GitHub Pages.
+#  push (your edits)      → same build + deploy, so code changes go live too.
+#
+# First-time setup: Settings → Pages → Source: "GitHub Actions", then add
+# TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID as repository secrets (optional).
+
+name: Monitor
+
+on:
+  push:
+    branches: [main, master]
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+# Queue runs instead of cancelling — a check run must never be killed midway.
+concurrency:
+  group: monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history so the state push never hits shallow limits
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # History + incidents live on the `state` branch so main stays clean.
+      # That tree is a full snapshot, so restore only gh-state/.
+      - name: Restore previous state
+        shell: bash
+        run: |
+          if git fetch origin state 2>/dev/null; then
+            git checkout FETCH_HEAD -- gh-state 2>/dev/null \
+              || echo "No gh-state on the state branch yet — starting fresh."
+          else
+            echo "No state branch yet — starting fresh."
+          fi
+
+      - name: Check monitors
+        if: github.event_name != 'push'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          LOG_LEVEL: info
+        run: node tools/gh-check.js
+
+      - name: Save state
+        if: github.event_name != 'push'
+        shell: bash
+        run: |
+          git config user.name "uptime-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f -A gh-state
+          if git diff --cached --quiet; then
+            echo "State unchanged."
+          else
+            git commit -m "chore(state): $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            # Force-push keeps the branch at one commit — zero repo growth.
+            git push --force origin HEAD:state
+          fi
+
+      - name: Build static site
+        run: node tools/gh-build.js
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

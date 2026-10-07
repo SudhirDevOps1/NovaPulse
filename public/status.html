@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Service status — Kestrel</title>
+    <meta
+      name="description"
+      content="Live service status, response times and 30-day uptime history."
+    />
+    <meta
+      name="theme-color"
+      content="#070c17"
+      media="(prefers-color-scheme: dark)"
+    />
+    <meta
+      name="theme-color"
+      content="#eef2f9"
+      media="(prefers-color-scheme: light)"
+    />
+    <meta name="color-scheme" content="dark light" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="status-page">
+      <div class="status-inner">
+        <header class="status-top">
+          <a class="brand" href="./">
+            <span class="brand-mark">
+              <svg class="icon icon-lg" viewBox="0 0 64 64" aria-hidden="true">
+                <path
+                  d="M32 8 16 26 4 34l16 0 8-4 4 14 4-14 8 4 16 0-12-8Z"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="4.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </span>
+            <span class="brand-text">
+              Kestrel
+              <small>service status</small>
+            </span>
+          </a>
+          <span
+            class="status-overall"
+            id="status-overall"
+            data-state="loading"
+            role="status"
+          >
+            Loading status…
+          </span>
+        </header>
+
+        <section class="card status-hero" aria-labelledby="status-title">
+          <h1 id="status-title">Service status</h1>
+          <p class="status-message" id="status-message" hidden></p>
+          <p class="status-updated">
+            Last updated <span id="status-updated">—</span>
+          </p>
+        </section>
+
+        <section class="card status-section" aria-label="Monitored services">
+          <div class="status-list" id="status-services">
+            <div class="skeleton status-skeleton"></div>
+            <div class="skeleton status-skeleton"></div>
+            <div class="skeleton status-skeleton"></div>
+          </div>
+        </section>
+
+        <section class="card status-section" aria-label="Recent incidents">
+          <div class="card-head">
+            <div class="card-title">Recent incidents</div>
+          </div>
+          <div class="status-incidents" id="status-incidents">
+            <div class="skeleton status-skeleton"></div>
+          </div>
+        </section>
+
+        <footer class="status-foot">
+          <span class="status-foot-brand">
+            Monitored with
+            <a href="./">Kestrel</a>
+          </span>
+          <img
+            class="status-badge"
+            id="status-badge"
+            alt="Fleet uptime badge"
+            width="140"
+            height="20"
+          />
+        </footer>
+      </div>
+    </main>
+
+    <script type="module" src="js/status.js"></script>
+  </body>
+</html>
