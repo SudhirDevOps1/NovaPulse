@@ -27,6 +27,7 @@
 
 🌐 **[Live Status Page](https://sudhirdevops1.github.io/NovaPulse/status.html)** • 
 🧡 **[Cloudflare Edge Guide](docs/CLOUDFLARE_EDGE_DEPLOYMENT.md)** • 
+🐙 **[Upptime Issues Guide](docs/UPPTIME_GITHUB_ISSUES_INTEGRATION.md)** • 
 ▲ **[Vercel & Turso/Neon Guide](docs/TURSO_NEON_VERCEL_SETUP.md)** • 
 ⏱️ **[24/7 Deployment Guide](docs/PERSISTENT_247_DEPLOYMENT.md)** • 
 📘 **[Getting Started](docs/GETTING_STARTED.md)** • 
@@ -48,6 +49,19 @@
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/SudhirDevOps1/NovaPulse)
 
 </div>
+
+---
+
+## ⚔️ The Multi-Platform Feature Matrix
+
+| Feature | Standard Upptime | Pingflare / UptimeFlare | Uptime Kuma | UptimeRobot | ⚡ **NovaPulse 2026** |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Execution Engine** | GitHub Actions (delays up to 45m) | Cloudflare Worker (1m edge) | Node.js Daemon (VPS) | Proprietary Cloud | 🏆 **Hybrid Edge + Worker + Docker + Actions** |
+| **Downtime Auto-Issues** | ✅ GitHub Issues | ❌ | ❌ | ❌ | 🏆 **✅ Upptime-Grade Auto Issues & Auto-Close** |
+| **Database Freedom** | Git commits only | Cloudflare D1 / KV | Local SQLite only | Proprietary | 🏆 **D1 · Turso · Neon · Aiven · Git · JSON** |
+| **Visual Telemetry** | ❌ | ❌ | ❌ | ❌ | 🏆 **Google Maps Platform 3D Edge Pins** |
+| **Screenshot Previews** | ❌ | ❌ | ❌ | Paid Plan | 🏆 **✅ Automated Headless Snapshots** |
+| **100% Free Forever** | ✅ (runner mins limit) | ✅ (100k req/day free) | ❌ (requires VPS) | ❌ (50 monitors limit) | 🏆 **✅ 100% Free Tier Forever (₹0 / $0)** |
 
 ---
 
