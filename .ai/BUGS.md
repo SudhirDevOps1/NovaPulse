@@ -13,11 +13,17 @@
 
 ## 1 · Open incidents
 
+_No open incidents — every registered defect is fixed and verified in CI._
+
+---
+
+## 2 · Closed incidents
+
 ### BUG-2026-0012 — the nightly deep audit never ran: CodeQL init, the Semgrep upload and the tracking issue all broke
 
 | field | value |
 | --- | --- |
-| status | 🟡 **OPEN** — 2026-10-08. Diagnosed from **CI-verified** Darwaza 3 run **37707281209** (schedule, head `c0f0e82`); fix is committed in PR #7 (`ci/fix-nightly-darwaza3`, head `bbb454a`) and the entry closes only when the next scheduled or `workflow_dispatch` run is green, at which point that run ID is recorded here |
+| status | ✅ **CLOSED** — 2026-10-08. Detected from **CI-verified** Darwaza 3 run **37707281209** (`schedule`, head `c0f0e82`) → **failure**; fixed in PR #7 (merge `2213486`). **CI verified:** Darwaza 3 run **37730503271** (`workflow_dispatch`, head `2213486`) → **Success**, all four jobs green (`CodeQL v4`, `Semgrep SAST`, `NPM critical/high CVE audit`, `File issue on failure`) with no skipped steps |
 | severity | **high** — the repo's only security sweep went red on its very first run, and the failure path meant the tracking issue it exists to open was never opened |
 | area | `.github/codeql/codeql-config.yml` · `.github/workflows/security-scan.yml` (`semgrep` and `notify` jobs) |
 | introduced | the original Darwaza 3 wiring; the label gap surfaced only because this repo has never had `security` or `security-nightly` labels |
@@ -57,13 +63,13 @@
   (`gh label create … --force || true`) before reporting, and issue creation
   falls back to an unlabelled issue.
 
-**Verification:** **pending CI.** PR #7 must land, then the next scheduled run
-(cron `30 20 * * *` UTC) or a manual `workflow_dispatch` of Darwaza 3 must show
-all four jobs green; that run ID replaces the status line above.
-
----
-
-## 2 · Closed incidents
+**Verification:** CI — Darwaza 3 run **37730503271** (`workflow_dispatch` on
+head `2213486`, 2026-10-08 05:03 UTC): status **Success**, and every job's
+steps are green — `Initialize CodeQL` no longer aborts, `Upload Semgrep SARIF`
+accepted `semgrep.sarif`, and `Report status` completed (no labels had to be
+created because the red run's failure path never opened an issue, and no
+`security-nightly` issue exists to close). The failing run **37707281209**
+remains the reproduction case.
 
 ### BUG-2026-0008 — the unit tests published fixture "ZAP findings" into a real CI job summary
 
