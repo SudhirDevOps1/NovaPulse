@@ -1,0 +1,11 @@
+[build]
+  publish = "site"
+  command = "npm run build"
+
+[functions]
+  directory = "netlify/functions"
+
+# Scheduled edge function every 1 minute
+[[functions.schedule]]
+  cron = "* * * * *"
+  path = "probe-cron"

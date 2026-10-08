@@ -26,17 +26,26 @@
 <br/>
 
 🌐 **[Live Status Page](https://sudhirdevops1.github.io/NovaPulse/status.html)** • 
+🧡 **[Cloudflare Edge Guide](docs/CLOUDFLARE_EDGE_DEPLOYMENT.md)** • 
+▲ **[Vercel & Turso/Neon Guide](docs/TURSO_NEON_VERCEL_SETUP.md)** • 
+⏱️ **[24/7 Deployment Guide](docs/PERSISTENT_247_DEPLOYMENT.md)** • 
 📘 **[Getting Started](docs/GETTING_STARTED.md)** • 
 🛠️ **[Developer Guide](docs/DEVELOPER_GUIDE.md)** • 
-⏱️ **[24/7 Deployment Guide](docs/PERSISTENT_247_DEPLOYMENT.md)** • 
-🩺 **[Monitoring Operations Guide](docs/MONITORING.md)** • 
-🤝 **[Contributing](CONTRIBUTING.md)** • 
 📐 **[Architecture Guide](.ai/ARCHITECTURE.md)** • 
 📜 **[Golden Laws](.ai/RULES.md)** • 
 🐛 **[Bug Register](.ai/BUGS.md)** • 
 📝 **[Changelog](.ai/CHANGELOG.md)** • 
 🚀 **[Quickstart](#-quickstart)** • 
 🔌 **[REST API](#-rest-api-reference)**
+
+<br/>
+
+### **One-Click Zero-Config Cloud & Edge Deployment**
+
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/SudhirDevOps1/NovaPulse)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/SudhirDevOps1/NovaPulse)
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/SudhirDevOps1/NovaPulse)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/SudhirDevOps1/NovaPulse)
 
 </div>
 
@@ -126,6 +135,11 @@ flowchart TD
 - 🗂️ **Interactive Incident Drawer**: Direct visual thumbnail preview inside monitor details, with instant "Open website ↗" deep-links.
 - 📝 **Raw Outage Response Body Snippets**: Captures the first 1,024 bytes of HTTP 4xx/5xx responses (e.g., `502 Bad Gateway`, `Database Connection Timed Out`, `Cloudflare DDoS screen`) so you understand what happened without searching server logs.
 - 🏷️ **Diagnostic Header Inspection**: Captures `Server`, `Content-Type`, and response headers during incidents for instant debugging.
+
+### 🗺️ Google Maps Platform Global Telemetry Map
+- 🌍 **Interactive Edge Telemetry Map**: Visualizes global edge probing nodes (Mumbai, Singapore, Frankfurt, London, San Jose, Ashburn, Tokyo) and target server locations worldwide.
+- 📍 **AdvancedMarkerElement Pins**: Custom glowing pins indicating real-time health (Operational 🟢, Degraded 🟠, Outage 🔴) with interactive latency InfoWindows.
+- 🛡️ **Terms & Tracking Compliant**: Uses modern Google Maps JavaScript API with built-in attribution (`internalUsageAttributionIds: ["gmp_git_agentskills_v1"]`).
 
 ### 📊 2026 Telemetry & Analytics (Server-Computed)
 - 📈 **Latency Percentiles**: Calculates `p50` (median), `p95` (peak), and `p99` percentiles across 24h, 7d, and 30d horizons.

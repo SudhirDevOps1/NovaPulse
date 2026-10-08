@@ -28,25 +28,25 @@ Any proposal that violates one of them needs an ADR
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
-│ L5  PRESENTATION      public/  · site/ (static build)             │
-│     Vanilla ES modules, no framework, no bundler. Hash routing.    │
-│     Escape hatch: everything renders through h() → text:/html:      │
+│ L5  PRESENTATION      public/  · site/ · public/js/maps.js         │
+│     Vanilla ES modules, Google Maps Platform Global Telemetry,     │
+│     Cyber OLED dashboard. Escape hatch: h() → text:/html:          │
 ├────────────────────────────────────────────────────────────────────┤
-│ L4  APPLICATION       server.js  → createApp()                    │
-│     Route table, request validation, security headers, rate limit, │
-│     error envelope. Contains NO business logic — it delegates down. │
+│ L4  APPLICATION       server.js · edge/worker.js · api/cron.js     │
+│     Express 5, Cloudflare Workers Edge, Vercel Cron gateway.       │
+│     Route table, request validation, security headers.             │
 ├────────────────────────────────────────────────────────────────────┤
 │ L3  DOMAIN            lib/checker · lib/probe · lib/analytics     │
 │     Scheduling, HTTP/TCP probing, percentile & SLA math,           │
-│     status projection. Pure-ish functions, independently testable.  │
+│     status projection. Pure-ish functions, independently testable. │
 ├────────────────────────────────────────────────────────────────────┤
 │ L2  INTEGRATION       lib/notify  ·  lib/badge  ·  lib/logger      │
 │     Outbound fan-out (Telegram/Discord/ntfy/webhook), SVG render,  │
-│     structured logging. Zero dependencies — plain fetch + string.   │
+│     structured logging. Zero dependencies — plain fetch + string.  │
 ├────────────────────────────────────────────────────────────────────┤
-│ L1  PERSISTENCE       lib/store                                     │
-│     One file, atomic tmp+rename, bounded ring buffers, in-memory    │
-│     state, debounced flush. The only module allowed to touch disk.  │
+│ L1  PERSISTENCE       lib/store · lib/db (D1, Turso, Neon, JSON)   │
+│     Pluggable storage: Cloudflare D1, Turso libSQL, Neon Postgres, │
+│     or default Atomic JSON. The only layer touching persistence.   │
 └────────────────────────────────────────────────────────────────────┘
 ```
 

@@ -2875,3 +2875,31 @@ kbd {
 	margin-bottom: var(--sp-1);
 }
 
+/* ---------------- Google Maps Platform Global Telemetry Map ---------------- */
+.telemetry-map {
+	width: 100%;
+	height: 360px;
+	border-radius: var(--r-md);
+	overflow: hidden;
+	background: #0d1117;
+	border: 1px solid var(--line);
+	position: relative;
+	margin-bottom: var(--sp-4);
+}
+
+.map-fallback-banner {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	padding: var(--sp-4);
+	text-align: center;
+	background: linear-gradient(135deg, var(--surface-2) 0%, var(--bg-1) 100%);
+}
+
+.map-fallback-content h4 {
+	color: var(--brand);
+	margin-bottom: var(--sp-2);
+}
+
+
