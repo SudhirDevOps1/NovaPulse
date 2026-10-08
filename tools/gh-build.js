@@ -91,6 +91,38 @@ fs.writeFileSync(
 	'export const APP_MODE = \'static\';\n',
 );
 
+// GitHub Pages sends no CSP header and the source HTML carries no meta tag, so
+// without this the static build was the one deployment with no XSS mitigation
+// at all — even though the build comment claimed otherwise. Maps origins are
+// added only when a key is baked in, keeping the default policy strict.
+const mapsApiKey = process.env.GOOGLE_MAPS_API_KEY || '';
+const csp = [
+	"default-src 'self'",
+	"base-uri 'none'",
+	"form-action 'self'",
+	mapsApiKey ? 'upgrade-insecure-requests' : null,
+	`img-src 'self' data:${mapsApiKey ? ' https://maps.gstatic.com https://*.googleapis.com' : ''}`,
+	"style-src 'self'",
+	`script-src 'self'${mapsApiKey ? ' https://maps.googleapis.com https://maps.gstatic.com' : ''}`,
+	`connect-src 'self'${mapsApiKey ? ' https://maps.googleapis.com https://maps.gstatic.com https://maps.google.com' : ''}`,
+	"font-src 'self'",
+	"object-src 'none'",
+]
+	.filter(Boolean)
+	.join('; ');
+
+for (const file of ['index.html', 'status.html']) {
+	const target = path.join(SITE_DIR, file);
+	const html = fs.readFileSync(target, 'utf8');
+	if (html.includes('http-equiv="Content-Security-Policy"')) continue;
+	if (!html.includes('<head>')) fail(`${file} has no <head> to attach the CSP to`);
+	fs.writeFileSync(target, html.replace('<head>', `<head>\n    <meta http-equiv="Content-Security-Policy" content="${csp}" />`));
+}
+
+if (mapsApiKey) {
+	state.settings = { ...(state.settings || {}), mapsApiKey };
+}
+
 fs.mkdirSync(path.join(SITE_DIR, 'data'), { recursive: true });
 fs.writeFileSync(path.join(SITE_DIR, 'data', 'state.json'), `${JSON.stringify(state, null, 2)}\n`);
 

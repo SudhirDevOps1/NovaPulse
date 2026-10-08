@@ -21,6 +21,8 @@
 	"include": [
 		"server.js",
 		"lib/**/*.js",
+		"api/**/*.js",
+		"edge/**/*.js",
 		"public/js/**/*.js",
 		"tools/**/*.js",
 		"test/**/*.js",

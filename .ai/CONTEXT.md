@@ -200,7 +200,7 @@ green or a green run red.
 | server | `server.js` (1) | route table + validation, no business logic |
 | lib | 8 | `analytics badge checker limits logger notify probe store` |
 | dashboard | `public/js/` 9 | `api app charts config icons monitors status ui views` |
-| shell | `public/` 5 | `index.html status.html style.css sw.js app.js` |
+| shell | `public/` 4 | `index.html status.html style.css sw.js` |
 | tools | 3 | `gh-check.js gh-build.js husky.js` |
 | tests | 1 unit + 2 e2e | see §4 |
 | workflows | **6** | `ci` `e2e-gate` `security-scan` `sonar` `release` (+ `monitor`) |

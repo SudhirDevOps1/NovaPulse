@@ -323,3 +323,28 @@ test('probe helpers parse status specs and tcp targets', () => {
 	);
 	assert.equal(generateScreenshotUrl('tcp://db.internal:5432'), null);
 });
+
+test('public endpoint sanitizes internal responseSnippet and headers', async () => {
+	const created = await fetch(`${base}/api/monitors`, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({
+			name: 'Sanitized Check',
+			url: 'https://example.com/check',
+			headers: { authorization: 'Bearer secret-token' },
+		}),
+	});
+	assert.equal(created.status, 201);
+	const data = await created.json();
+	// custom request headers must NOT be returned in public monitor representation
+	assert.equal(data.headers, undefined);
+
+	// GET /api/incidents must not leak responseSnippet
+	const incidentsRes = await fetch(`${base}/api/incidents`);
+	assert.equal(incidentsRes.status, 200);
+	const incidents = await incidentsRes.json();
+	for (const inc of incidents) {
+		assert.equal(inc.responseSnippet, undefined);
+		assert.equal(inc.responseHeaders, undefined);
+	}
+});

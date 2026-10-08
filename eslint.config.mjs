@@ -9,7 +9,7 @@ import globals from 'globals';
  *
  * Layout of the codebase:
  *   lib/, server.js, test/, tools/   CommonJS, Node runtime
- *   public/js/, public/sw.js, public/app.js   ES modules, browser runtime
+ *   public/js/, public/sw.js         ES modules, browser runtime
  *   *.mjs                             ES modules, Node tooling
  */
 export default [
@@ -67,7 +67,7 @@ export default [
 
 	// ---- Browser -------------------------------------------------------
 	{
-		files: ['public/js/**/*.js', 'public/app.js'],
+		files: ['public/js/**/*.js'],
 		languageOptions: {
 			ecmaVersion: 2023,
 			sourceType: 'module',
