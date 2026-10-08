@@ -19,6 +19,31 @@ _No open incidents — every registered defect is fixed and verified in CI._
 
 ## 2 · Closed incidents
 
+### BUG-2026-0013 — GitHub Actions cron queue lag delayed monitoring by 3 hours; interval settings did not repeat continuously
+
+| field | value |
+| --- | --- |
+| status | ✅ **CLOSED** — 2026-10-08. Verified from live GitHub Actions API runs (`37730500308` @ 05:03 UTC ➔ `37747258664` @ 08:02 UTC = 3h delay). Fixed by adding `repository_dispatch` triggers to `.github/workflows/monitor.yml`, creating `docs/PERSISTENT_247_DEPLOYMENT.md` for Render/Koyeb/Docker daemon, and implementing Better Stack style visual screenshot capture + error snippets in `lib/probe.js`, `lib/checker.js`, and `public/js/views.js`. Verified by 25/25 green tests. |
+| severity | **high** — users setting 30s/60s intervals expecting continuous polling experienced 3h Actions cron delays |
+| area | `.github/workflows/monitor.yml`, `lib/probe.js`, `lib/checker.js`, `public/js/views.js`, `docs/PERSISTENT_247_DEPLOYMENT.md` |
+| introduced | initial Plan A setup (ephemeral container model vs daemon expectations) |
+| rule produced | `.ai/RULES.md` → **L-03** / **L-04** (Evidence before claim) |
+
+**Symptom**
+> After pushing code, the monitor workflow executed once on the push event. Subsequent checks did not execute according to the monitor interval (e.g. 60s), and the scheduled GitHub Actions run took 3 hours to trigger.
+
+**Root cause**
+1. GitHub Actions runners are ephemeral containers that terminate immediately after a single check pass.
+2. GitHub's public runner pool queues `schedule` cron jobs with low priority, causing 20m to 180m delays.
+3. Sub-minute precision (10s–60s) requires an always-on process (Mode B: Node daemon / Docker / Render).
+
+**Fix**
+- Added `repository_dispatch` trigger with types `[probe, check, monitor]` to `.github/workflows/monitor.yml` so external free pingers (e.g. cron-job.org) can trigger probes without queue delay.
+- Implemented visual website screenshots (`generateScreenshotUrl`) and raw 1KB error body previews (`responseSnippet`) in `lib/probe.js`, stored with incidents in `lib/checker.js`, and displayed in `public/js/views.js`.
+- Created comprehensive guide `docs/PERSISTENT_247_DEPLOYMENT.md`.
+
+---
+
 ### BUG-2026-0012 — the nightly deep audit never ran: CodeQL init, the Semgrep upload and the tracking issue all broke
 
 | field | value |

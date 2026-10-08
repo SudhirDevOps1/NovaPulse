@@ -2793,3 +2793,85 @@ kbd {
 	font-size: 0.95em;
 	line-height: 1;
 }
+
+/* ---------------- visual previews & incident diagnostics ---------------- */
+.visual-preview-section {
+	margin-top: var(--sp-4);
+}
+
+.preview-container {
+	position: relative;
+	width: 100%;
+	border-radius: var(--r-md);
+	overflow: hidden;
+	border: 1px solid var(--line);
+	background: var(--surface-2);
+	aspect-ratio: 16 / 10;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.monitor-screenshot-preview {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
+	transition: transform var(--t-base) var(--ease);
+}
+
+.preview-container:hover .monitor-screenshot-preview {
+	transform: scale(1.02);
+}
+
+.incident-details-preview {
+	margin-top: var(--sp-2);
+}
+
+.code-snippet {
+	margin-top: var(--sp-1);
+	padding: var(--sp-2) var(--sp-3);
+	background: var(--bg-1);
+	border: 1px solid var(--line);
+	border-radius: var(--r-sm);
+	font-family: var(--font-mono, monospace);
+	font-size: 0.75rem;
+	color: var(--down);
+	white-space: pre-wrap;
+	word-break: break-all;
+	max-height: 140px;
+	overflow-y: auto;
+}
+
+.incident-thumb-wrap {
+	margin-top: var(--sp-2);
+	width: 140px;
+	height: 85px;
+	border-radius: var(--r-sm);
+	overflow: hidden;
+	border: 1px solid var(--line);
+}
+
+.incident-thumbnail {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
+}
+
+.incident-diagnosis-box {
+	background: color-mix(in srgb, var(--down) 8%, var(--surface-2));
+	border: 1px solid color-mix(in srgb, var(--down) 28%, var(--line));
+	border-radius: var(--r-md);
+	padding: var(--sp-3);
+	margin-bottom: var(--sp-4);
+}
+
+.incident-diagnosis-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--sp-2);
+	margin-bottom: var(--sp-1);
+}
+
