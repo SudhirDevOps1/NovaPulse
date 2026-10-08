@@ -113,7 +113,7 @@ shows it live: `health.alerts = { telegram: false, discord: false, slack: false,
 | :--- | :--- |
 | `schedule: "*/5 * * * *"` | GitHub's cron. **Measured 2026-10-07/08: only 4 ticks arrived in 24 h (expected ≈ 288) — 17:27, 22:09, 01:53, 08:02 UTC, gaps of 4 h 42 m, 3 h 44 m, 6 h 09 m.** |
 | **keeper loop** (what a tick now starts) | Instead of one probe, the tick starts a loop: probe → save state → request a deploy → sleep → repeat, every ~5 min, for up to **5 h 30 m**, handing over early the moment another Monitor run is queued. So between (late) ticks the cadence is still the honest 5 minutes. |
-| `repository_dispatch` (`probe`/`check`/`monitor`) | External pinger → instant run. Setup: [24/7 Guide · Option 4](PERSISTENT_247_DEPLOYMENT.md#⏰-option-4-eliminating-github-actions-cron-lag-mode-a-fix) (cron-job.org, free). |
+| `repository_dispatch` (`probe`/`check`/`monitor`) | External pinger → instant run. Setup: [24/7 Guide · Option 4](PERSISTENT_247_DEPLOYMENT.md#-option-4-eliminating-github-actions-cron-lag-mode-a-fix) (cron-job.org, free). |
 | `workflow_dispatch` | Manual "Run workflow" — see `mode` table in §2. |
 | `push` to `config/**`, `public/**`, `site/**`, `tools/**`, or the workflow | One probe + deploy right away (docs/test/`lib/` pushes do **not** redeploy Pages). |
 
@@ -196,7 +196,7 @@ Facts below are from the vendors' own pricing/help pages (retrieved 2026-10-08).
 | add/edit a monitor | `config/monitors.json` → PR → merge |
 | get alerts | Settings → Secrets and variables → Actions → new secret (§2) |
 | check right now | Actions → Monitor → Run workflow (`mode: auto`) |
-| get exact 5-min cadence 24/7 | cron-job.org → `repository_dispatch` ([Option 4](PERSISTENT_247_DEPLOYMENT.md#⏰-option-4-eliminating-github-actions-cron-lag-mode-a-fix)) |
+| get exact 5-min cadence 24/7 | cron-job.org → `repository_dispatch` ([Option 4](PERSISTENT_247_DEPLOYMENT.md#-option-4-eliminating-github-actions-cron-lag-mode-a-fix)) |
 | get 10 s/30 s/60 s cadence | [Mode B recipes](PERSISTENT_247_DEPLOYMENT.md) |
 | see raw history | `state` branch → `gh-state/monitors.json` |
 | see who changed what | `.ai/BUGS.md` (incidents) · `docs/CHANGELOG…` via Releases |
