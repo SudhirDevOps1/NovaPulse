@@ -22,6 +22,10 @@
       media="(prefers-color-scheme: light)"
     />
     <meta name="color-scheme" content="dark light" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' https://maps.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://maps.gstatic.com https://*.googleapis.com https://s0.wp.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://maps.googleapis.com;"
+    />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="stylesheet" href="style.css" />

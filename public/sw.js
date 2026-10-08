@@ -5,7 +5,7 @@
  *  - navigations:   network-first with cached shell fallback
  *  - data (/api/*, data/*.json): ALWAYS network — never serve stale state
  */
-const CACHE = 'novapulse-shell-v2026.2';
+const CACHE = 'novapulse-shell-v2026.3';
 
 /* TS's WebWorker lib types `self` as a plain WorkerGlobalScope, which has no
  * `skipWaiting`/`clients` — those live on ServiceWorkerGlobalScope. Narrow it
@@ -26,6 +26,7 @@ const SHELL = [
 	'js/charts.js',
 	'js/config.js',
 	'js/icons.js',
+	'js/maps.js',
 	'js/monitors.js',
 	'js/status.js',
 	'js/ui.js',
@@ -72,11 +73,22 @@ sw.addEventListener('fetch', (event) => {
 		event.respondWith(
 			fetch(request)
 				.then((response) => {
-					const copy = response.clone();
-					caches.open(CACHE).then((cache) => cache.put('index.html', copy));
+					// Cache under the requested URL and only on success. The old
+					// code wrote every navigation to the `index.html` key with no
+					// status check, so visiting /status replaced the dashboard
+					// shell and any 404 page became the offline fallback.
+					if (response.ok) {
+						const copy = response.clone();
+						caches.open(CACHE).then((cache) => cache.put(request, copy));
+					}
 					return response;
 				})
-				.catch(() => caches.match('index.html').then((cached) => cached || Response.error())),
+				.catch(() =>
+					caches
+						.match(request)
+						.then((cached) => cached || caches.match('index.html'))
+						.then((cached) => cached || Response.error()),
+				),
 		);
 		return;
 	}

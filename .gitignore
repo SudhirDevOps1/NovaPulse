@@ -1,10 +1,24 @@
 node_modules/
 data/*.json
+data/*.lock
 !data/.gitkeep
 *.log
+
+# ── env files (.env.example stays tracked) ────────────────────────────────
 .env
+.env.*
+!.env.example
+
 site/
 gh-state/
+
+# ── OS / editor junk ──────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.tsbuildinfo
+public/js/config.js.bak
 
 # ── test / scan artefacts (never committed) ──────────────────────────────
 playwright-report/

@@ -8,8 +8,8 @@ const pkg = require('./package.json');
 const logger = require('./lib/logger');
 const store = require('./lib/store');
 const { rateLimit } = require('./lib/limits');
-const { checkNow, createScheduler } = require('./lib/checker');
-const { parseTcpTarget } = require('./lib/probe');
+const { createScheduler } = require('./lib/checker');
+const { parseTcpTarget, isPrivateHost, allowPrivateTargets } = require('./lib/probe');
 const analytics = require('./lib/analytics');
 const { badgeSvg } = require('./lib/badge');
 const { channelStatus } = require('./lib/notify');
@@ -44,12 +44,21 @@ function validateMonitor(body = {}) {
 	let type = body.type === 'tcp' ? 'tcp' : 'http';
 	if (!url) {
 		errors.push('url is required');
+	} else if (url.length > 2048) {
+		// Long enough to break the alert channels: Telegram rejects >4096 chars,
+		// so an oversized URL silently lost the notification that mattered.
+		errors.push('url must be 2048 characters or fewer');
 	} else {
 		try {
 			const parsed = new URL(url);
 			if (parsed.protocol === 'tcp:') type = 'tcp';
 			else if (!/^https?:$/.test(parsed.protocol)) errors.push('url must use http, https or tcp');
 			if (type === 'tcp' && !parseTcpTarget(url)) errors.push('tcp url must look like tcp://host:port');
+
+			const targetHost = (type === 'tcp' ? parseTcpTarget(url)?.host : parsed.hostname) || '';
+			if (!allowPrivateTargets() && isPrivateHost(targetHost)) {
+				errors.push('cannot monitor private, loopback, link-local or cloud metadata addresses');
+			}
 		} catch {
 			errors.push('url must be a valid absolute URL');
 		}
@@ -143,6 +152,13 @@ function validateMonitor(body = {}) {
 function publicMonitor(monitor) {
 	const payload = { ...monitor, uptime24h: store.uptime24h(monitor) };
 	delete payload.rollups;
+	delete payload.headers;
+	if (payload.lastCheck) {
+		const cleanCheck = { ...payload.lastCheck };
+		delete cleanCheck.responseSnippet;
+		delete cleanCheck.responseHeaders;
+		payload.lastCheck = cleanCheck;
+	}
 	return payload;
 }
 
@@ -161,9 +177,23 @@ function securityHeaders(req, res, next) {
 	// subresource may load without opting in, and documents are not readable
 	// cross-origin. CSP already forbids cross-origin sources, so require-corp
 	// cannot break the UI; embeddable badge SVGs relax CORP below (README §badges).
-	res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+	//
+	// Google Maps can never satisfy `require-corp` (it sends no CORP header), so
+	// enabling the map key also switches to `credentialless` — otherwise the
+	// telemetry card always fell back to the static banner no matter what.
+	const externalMaps = Boolean(process.env.GOOGLE_MAPS_API_KEY);
+	res.setHeader('Cross-Origin-Embedder-Policy', externalMaps ? 'credentialless' : 'require-corp');
 	res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
 	res.setHeader('X-DNS-Prefetch-Control', 'off');
+	const scriptSrc = externalMaps
+		? "script-src 'self' https://maps.googleapis.com https://maps.gstatic.com"
+		: "script-src 'self'";
+	const connectSrc = externalMaps
+		? "connect-src 'self' https://maps.googleapis.com https://maps.gstatic.com https://maps.google.com"
+		: "connect-src 'self'";
+	const imgSrc = externalMaps
+		? "img-src 'self' data: https://maps.gstatic.com https://*.googleapis.com https://s0.wp.com"
+		: "img-src 'self' data: https://s0.wp.com";
 	res.setHeader(
 		'Content-Security-Policy',
 		[
@@ -175,10 +205,10 @@ function securityHeaders(req, res, next) {
 			process.env.ALLOW_FRAMING === '1'
 				? 'frame-ancestors http: https:'
 				: "frame-ancestors 'none'",
-			"img-src 'self' data:",
+			imgSrc,
 			"style-src 'self'",
-			"script-src 'self'",
-			"connect-src 'self'",
+			scriptSrc,
+			connectSrc,
 			"font-src 'self'",
 			"object-src 'none'",
 		].join('; '),
@@ -292,13 +322,15 @@ function createApp() {
 	// ---- API ----
 
 	app.get('/api/health', (req, res) => {
+		const persistence = store.health();
 		res.json({
-			ok: true,
+			ok: persistence.ok,
 			version: pkg.version,
 			node: process.version,
 			env: process.env.NODE_ENV || 'development',
 			uptimeSec: Math.round((Date.now() - startedAt) / 1000),
 			monitors: store.list().length,
+			persistence,
 			telegram: Boolean(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID),
 			alerts: channelStatus(),
 			now: new Date().toISOString(),
@@ -336,7 +368,9 @@ function createApp() {
 
 		const monitor = store.create(value);
 		logger.info('Monitor created', { name: monitor.name, url: monitor.url });
-		checkNow(monitor).catch(() => {});
+		// Through the scheduler so the create-triggered probe shares the same
+		// in-flight guard as the ticker (they used to race each other).
+		scheduler.run(monitor).catch(() => {});
 		res.status(201).json(publicMonitor(monitor));
 	});
 
@@ -360,10 +394,19 @@ function createApp() {
 	app.get('/api/monitors/:id/checks.csv', (req, res) => {
 		const monitor = store.get(req.params.id);
 		if (!monitor) return res.status(404).json({ error: 'Monitor not found' });
+		// History can be shaped by a backup import, and a CSV opened in a
+		// spreadsheet executes `=CMD(...)` — quote and neutralise first.
+		const csvCell = (value) => {
+			const text = value === null || value === undefined ? '' : String(value);
+			const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+			return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+		};
 		const lines = ['timestamp,ok,http_status,response_ms'];
 		for (const entry of monitor.history) {
 			lines.push(
-				`${entry.at},${entry.ok ? 1 : 0},${entry.status ?? ''},${Number.isFinite(entry.ms) ? entry.ms : ''}`,
+				[entry.at, entry.ok ? 1 : 0, entry.status ?? '', Number.isFinite(entry.ms) ? entry.ms : '']
+					.map(csvCell)
+					.join(','),
 			);
 		}
 		res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -405,7 +448,10 @@ function createApp() {
 		try {
 			const monitor = store.get(req.params.id);
 			if (!monitor) return res.status(404).json({ error: 'Monitor not found' });
-			const updated = await checkNow(monitor);
+			// `scheduler.run` joins an in-flight check instead of starting a
+			// second one, so a hand-triggered check can never overwrite a newer
+			// result with an older one.
+			const updated = await scheduler.run(monitor);
 			res.json(publicMonitor(updated));
 		} catch (error) {
 			next(error);
@@ -413,11 +459,17 @@ function createApp() {
 	});
 
 	app.get('/api/incidents', (req, res) => {
-		const limit = Math.min(Number(req.query.limit) || 50, 200);
+		const limit = Math.max(1, Math.min(Number(req.query.limit) || 50, 200));
+		const incidents = store.incidents(limit, {
+			monitorId: typeof req.query.monitorId === 'string' ? req.query.monitorId : undefined,
+			type: req.query.type === 'up' || req.query.type === 'down' ? req.query.type : undefined,
+		});
 		res.json(
-			store.incidents(limit, {
-				monitorId: typeof req.query.monitorId === 'string' ? req.query.monitorId : undefined,
-				type: req.query.type === 'up' || req.query.type === 'down' ? req.query.type : undefined,
+			incidents.map((inc) => {
+				const copy = { ...inc };
+				delete copy.responseSnippet;
+				delete copy.responseHeaders;
+				return copy;
 			}),
 		);
 	});
@@ -441,7 +493,13 @@ function createApp() {
 	// ---- settings (status page, alert channel report) ----
 
 	app.get('/api/settings', (req, res) => {
-		res.json({ ...store.getSettings(), alerts: channelStatus() });
+		// Google Maps keys are shipped to the browser by design — restrict one by
+		// HTTP referrer in the Google console. Never persisted, never exported.
+		res.json({
+			...store.getSettings(),
+			alerts: channelStatus(),
+			mapsApiKey: process.env.GOOGLE_MAPS_API_KEY || '',
+		});
 	});
 
 	app.patch('/api/settings', (req, res) => {

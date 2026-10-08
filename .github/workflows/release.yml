@@ -74,6 +74,10 @@ jobs:
     name: Google release-please v4
     needs: quality-gate
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
     steps:
       - name: Run release-please
         id: release

@@ -7,6 +7,7 @@
  *   - Modern marker standard: google.maps.marker.AdvancedMarkerElement
  *   - Dark OLED Cyber map styling
  */
+import { escapeHtml } from './ui.js';
 
 const EDGE_PROBE_NODES = [
 	{ id: 'bom', name: 'Mumbai Edge (BOM)', lat: 19.076, lng: 72.8777, region: 'Asia-Pacific' },
@@ -91,19 +92,21 @@ export async function initTelemetryMap(containerEl, { monitors = [], apiKey = ''
 
 			marker.addListener('click', () => {
 				infoWindow.setContent(`
-					<div style="background:#0d1117;color:#c9d1d9;padding:8px;border-radius:6px;font-family:sans-serif;">
-						<b style="color:#00f2fe;">📡 ${node.name}</b><br/>
-						<span style="font-size:12px;color:#8b949e;">Region: ${node.region}</span><br/>
-						<span style="font-size:11px;color:#3fb950;">● Global Edge Active · 1m Probing</span>
+					<div class="map-info">
+						<b class="map-info-name">📡 ${node.name}</b><br/>
+						<span class="map-info-meta">Region: ${node.region}</span><br/>
+						<span class="map-info-note">● Reference location (illustrative marker)</span>
 					</div>
 				`);
 				infoWindow.open({ anchor: marker, map });
 			});
 		});
 
-		// 2. Plot active monitored targets
+		// 2. Plot active monitored targets.
+		// NovaPulse has no geolocation for a target, so the marker is placed on a
+		// deterministic offset purely to keep them apart. The popup says so — the
+		// numbers in it (name, URL, status, latency) are real telemetry.
 		monitors.forEach((m, idx) => {
-			// Offset target coordinates slightly across world map for visualization
 			const baseLat = 28.6139 + ((idx * 17) % 35) - 15;
 			const baseLng = 77.209 + ((idx * 29) % 120) - 60;
 			const isUp = m.status === 'up';
@@ -124,11 +127,17 @@ export async function initTelemetryMap(containerEl, { monitors = [], apiKey = ''
 			});
 
 			marker.addListener('click', () => {
+				// `m.name`/`m.url` are attacker-supplied monitor fields and
+				// InfoWindow.setContent parses HTML — unescaped here this was the
+				// one real XSS sink in the frontend.
+				const latency = Number.isFinite(Number(m.lastCheck?.ms)) ? `${Number(m.lastCheck.ms)}ms` : 'No checks';
+				const stateClass = isDown ? 'is-down' : isUp ? 'is-up' : '';
 				infoWindow.setContent(`
-					<div style="background:#0d1117;color:#c9d1d9;padding:8px;border-radius:6px;font-family:sans-serif;">
-						<b style="color:${isDown ? '#f85149' : '#3fb950'};">${m.name}</b><br/>
-						<span style="font-size:12px;color:#8b949e;">URL: ${m.url}</span><br/>
-						<span style="font-size:12px;">Status: <b>${m.status.toUpperCase()}</b> · ${m.lastCheck ? m.lastCheck.ms + 'ms' : 'No checks'}</span>
+					<div class="map-info">
+						<b class="map-info-name ${stateClass}">${escapeHtml(m.name)}</b><br/>
+						<span class="map-info-meta">URL: ${escapeHtml(m.url)}</span><br/>
+						<span class="map-info-status">Status: <b>${escapeHtml(String(m.status).toUpperCase())}</b> · ${latency}</span><br/>
+						<span class="map-info-note">📍 Marker position is illustrative</span>
 					</div>
 				`);
 				infoWindow.open({ anchor: marker, map });
@@ -141,9 +150,13 @@ export async function initTelemetryMap(containerEl, { monitors = [], apiKey = ''
 		containerEl.innerHTML = `
 			<div class="map-fallback-banner">
 				<div class="map-fallback-content">
-					<h4>🗺️ Global Edge Probing Active</h4>
-					<p>7 Global Edge Locations (Mumbai, Singapore, Frankfurt, London, San Jose, Ashburn, Tokyo) running 1-minute probes.</p>
-					<span class="muted text-xs">Set GOOGLE_MAPS_API_KEY in settings to activate interactive 3D satellite visualization.</span>
+					<h4>🗺️ Telemetry map unavailable</h4>
+					<p>The interactive basemap did not load. Monitor status, latency and uptime are unaffected and shown elsewhere in the dashboard.</p>
+					<span class="muted text-xs">${
+						apiKey
+							? 'Google Maps Platform could not be reached.'
+							: 'Set GOOGLE_MAPS_API_KEY in the server environment to enable the interactive 3D map.'
+					}</span>
 				</div>
 			</div>
 		`;

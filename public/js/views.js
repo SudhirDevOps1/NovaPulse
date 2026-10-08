@@ -265,14 +265,17 @@ export function renderOverview({ stats, monitors, incidents, ctx, analytics }) {
 	});
 
 	const mapContainer = h('div', { id: 'telemetry-map-container', class: 'telemetry-map' });
+	const mapsApiKey = ctx.state.settings?.mapsApiKey || '';
 	const mapCard = sectionCard({
 		title: 'Global Edge Probe Telemetry',
-		hint: 'Google Maps Platform · 8 global edge nodes · live status',
+		hint: mapsApiKey
+			? 'Google Maps Platform · reference node markers · monitor status from live checks'
+			: 'Set GOOGLE_MAPS_API_KEY on the server to enable the interactive map',
 		body: mapContainer,
 	});
 	import('./maps.js')
 		.then(({ initTelemetryMap }) => {
-			initTelemetryMap(mapContainer, { monitors });
+			initTelemetryMap(mapContainer, { monitors, apiKey: mapsApiKey });
 		})
 		.catch(() => {});
 
@@ -638,7 +641,7 @@ export function buildMonitorBody(monitor, ctx) {
 		monitor.lastCheck?.error && monitor.status === 'down'
 			? h('div', { class: 'banner error incident-diagnosis-box', role: 'alert' }, [
 					iconEl('alert'),
-					h('div', { style: 'width: 100%;' }, [
+					h('div', { class: 'incident-diagnosis-body' }, [
 						h('div', { class: 'incident-diagnosis-head' }, [
 							h('b', { text: `Outage: ${monitor.lastCheck.error}` }),
 							monitor.lastCheck.status ? h('span', { class: 'chip chip-sm text-xs', text: `HTTP ${monitor.lastCheck.status}` }) : null,
