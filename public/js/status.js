@@ -177,7 +177,7 @@ function render(data) {
 
 	const titleEl = document.getElementById('status-title');
 	if (titleEl) {
-		titleEl.textContent = meta.title;
+		titleEl.textContent = data.title || meta.title;
 	}
 
 	const subtitleEl = document.getElementById('status-subtitle');
@@ -185,8 +185,8 @@ function render(data) {
 		const total = (data.services || []).length;
 		const up = (data.services || []).filter((s) => s.status === 'up').length;
 		subtitleEl.textContent = total > 0
-			? `${up} of ${total} service(s) fully operational · Monitored across 8 global edge vantage nodes.`
-			: meta.subtitle;
+			? `${meta.title} · ${up} of ${total} service(s) operational · Monitored across global edge vantage nodes.`
+			: (data.title ? `${meta.title} · ${meta.subtitle}` : meta.subtitle);
 	}
 
 	const message = document.getElementById('status-message');

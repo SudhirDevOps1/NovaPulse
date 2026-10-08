@@ -1,29 +1,38 @@
-# Multi-stage production build for NovaPulse
-FROM node:20-alpine AS builder
+# Build stage — install dependencies from the lockfile, nothing else.
+FROM node:22-alpine AS deps
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci --omit=dev
+RUN apk add --no-cache curl
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+COPY package.json pnpm-lock.yaml ./
+RUN corepack enable && pnpm install --frozen-lockfile --prod
 
-FROM node:20-alpine
+# Runtime stage — only what the server needs to boot.
+FROM node:22-alpine
 WORKDIR /app
 ENV NODE_ENV=production \
-    PORT=3000 \
-    HOST=0.0.0.0 \
-    UPTIME_DATA_DIR=/app/data
+	HOST=0.0.0.0 \
+	PORT=3000 \
+	UPTIME_DATA_DIR=/app/data
 
-# Create data directory and non-root user
-RUN mkdir -p /app/data && chown -R node:node /app
+# curl is used by the healthcheck below.
+RUN apk add --no-cache curl
 
-COPY --from=builder /app/node_modules ./node_modules
-COPY package*.json ./
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json ./
+COPY lib ./lib
+COPY public ./public
 COPY server.js ./
-COPY lib/ ./lib/
-COPY public/ ./public/
 
-USER node
+# Non-root user; data/ must stay writable so monitors.json survives restarts.
+RUN addgroup -S app && adduser -S app -G app \
+	&& mkdir -p /app/data \
+	&& chown -R app:app /app
+USER app
+
 EXPOSE 3000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/api/health || exit 1
+# /api/health answers without touching disk, so it is safe as a container probe.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+	CMD curl -fsS "http://127.0.0.1:${PORT}/api/health" || exit 1
 
 CMD ["node", "server.js"]

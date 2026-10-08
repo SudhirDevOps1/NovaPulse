@@ -204,10 +204,7 @@ function securityHeaders(req, res, next) {
 	// enabling the map key also switches to `credentialless` — otherwise the
 	// telemetry card always fell back to the static banner no matter what.
 	const externalMaps = Boolean(process.env.GOOGLE_MAPS_API_KEY);
-	const coep = (req.path.startsWith('/api') && !req.path.startsWith('/api/badge'))
-		? 'require-corp'
-		: 'credentialless';
-	res.setHeader('Cross-Origin-Embedder-Policy', coep);
+	res.setHeader('Cross-Origin-Embedder-Policy', externalMaps ? 'credentialless' : 'require-corp');
 	res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
 	res.setHeader('X-DNS-Prefetch-Control', 'off');
 	const scriptSrc = externalMaps
