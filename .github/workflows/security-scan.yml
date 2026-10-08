@@ -82,6 +82,11 @@ jobs:
       # `p/security-audit` + `p/javascript` cover injection, unsafe regex,
       # hardcoded secrets and prototype pollution — the classes that matter
       # for an HTTP probing service.
+      #
+      # Output must be SARIF: `--json` writes Semgrep's own schema (version
+      # 2.1.0, `results`/`errors`/no `runs`), which upload-sarif rejects with
+      # "not valid SARIF … requires property runs". `--error` still exits
+      # non-zero when findings exist, whatever the output format.
       - name: Run Semgrep
         run: |
           set -euo pipefail
@@ -89,7 +94,7 @@ jobs:
             --config p/security-audit \
             --config p/javascript \
             --config p/nodejs \
-            --json --output semgrep-report.json \
+            --sarif --output semgrep.sarif \
             --error \
             --metrics=off \
             lib public tools server.js test
@@ -98,7 +103,7 @@ jobs:
         if: always()
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: semgrep-report.json
+          sarif_file: semgrep.sarif
           category: semgrep
 
       - name: Upload Semgrep report artifact
@@ -106,7 +111,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: semgrep-report
-          path: semgrep-report.json
+          path: semgrep.sarif
           retention-days: 14
 
   npm-audit:
@@ -179,6 +184,17 @@ jobs:
         run: |
           set -euo pipefail
           echo "codeql=$CODEQL_RESULT semgrep=$SEMGREP_RESULT audit=$AUDIT_RESULT"
+
+          # Labels are cosmetic and must never block the report: a fresh fork
+          # has neither label, and the first run died here with
+          # `could not add label: 'security-nightly' not found` (exit 1), so
+          # the tracking issue was never opened. Create them idempotently and
+          # keep going even if the token may not manage labels.
+          gh label create security-nightly --repo "$REPO" --color B60205 \
+            --description "Nightly Darwaza 3 audit status" --force || true
+          gh label create security --repo "$REPO" --color B60205 \
+            --description "Security findings and audits" --force || true
+
           if [ "$CODEQL_RESULT" = "success" ] && [ "$SEMGREP_RESULT" = "success" ] && [ "$AUDIT_RESULT" = "success" ]; then
             # Green run: close a previously opened nightly-audit issue if present.
             gh issue list --repo "$REPO" --label security-nightly --state open \
@@ -211,10 +227,14 @@ jobs:
             --json number --jq '.[0].number // empty')
           if [ -n "$existing" ]; then
             gh issue comment "$existing" --repo "$REPO" --body "$BODY"
-          else
+          elif ! gh issue create --repo "$REPO" \
+            --title "Nightly security audit failing" \
+            --label "security-nightly" \
+            --label "security" \
+            --body "$BODY"; then
+            # Last resort: an unlabelled issue still beats no visible artefact.
+            echo "::warning::labelled issue creation failed; opening it without labels"
             gh issue create --repo "$REPO" \
               --title "Nightly security audit failing" \
-              --label "security-nightly" \
-              --label "security" \
               --body "$BODY"
           fi

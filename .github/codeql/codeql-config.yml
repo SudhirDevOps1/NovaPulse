@@ -10,8 +10,12 @@ name: NovaPulse CodeQL
 disable-default-queries: false
 
 queries:
-  # Extra precision on top of the default security-extended suite.
-  - uses: security/extended
+  # Built-in suite names are hyphenated (`security-extended`, not
+  # `security/extended`): a slash makes the CodeQL CLI parse the value as an
+  # external repository specifier and abort database init with
+  # "Specifier for external repository is invalid: security/extended".
+  # Extra precision on top of the default security suite:
+  - uses: security-extended
   - uses: security-and-quality
 
 paths:
@@ -28,9 +32,8 @@ paths-ignore:
   - data
   - "**/*.min.js"
 
-languages:
-  - javascript
-  - typescript
-
-# `javascript` and `typescript` share a extractor in CodeQL v2+; declaring both
-# keeps the workflow file free of duplicated query-suite wiring.
+# `javascript` and `typescript` share an extractor in CodeQL v2+, so the
+# workflow declares `languages: javascript-typescript` once on the init step.
+# There is deliberately no `languages:` key above: it is not a configuration
+# file property, and CodeQL prints "Invalid property specified … Ignoring it"
+# for it on every run.

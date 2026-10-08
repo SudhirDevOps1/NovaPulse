@@ -210,7 +210,7 @@ volume.
 | --- | --- | --- | --- |
 | Darwaza 1 — Fast PR | `workflows/ci.yml` | typecheck (2 tsconfigs), lint `--max-warnings=0`, 25 unit tests, static build, Docker build, commitlint (Node 20/22/24) | ✅ required `gate` check |
 | Darwaza 2 — Heavy PR | `workflows/e2e-gate.yml` | Playwright (13 specs × desktop+mobile) + **OWASP ZAP baseline** against a freshly built container, seeded with a monitor and the status page enabled | ✅ warning-level ZAP findings fail; info-level does not |
-| Darwaza 3 — Nightly | `workflows/security-scan.yml` | **CodeQL v4** (JS/TS, fails on any open error-severity alert), **Semgrep** (`p/security-audit`, `p/javascript`, `p/nodejs`, `--error`), **npm audit** (high/critical) | nightly — opens/updates a `security-nightly` issue, closes it when green |
+| Darwaza 3 — Nightly | `workflows/security-scan.yml` | **CodeQL v4** (JS/TS, fails on any open error-severity alert), **Semgrep** (`p/security-audit`, `p/javascript`, `p/nodejs`, `--sarif` → `upload-sarif`, `--error`), **npm audit** (high/critical) | nightly — opens/updates a `security-nightly` issue, closes it when green |
 | Sonar | `workflows/sonar.yml` | maintainability, duplication, coverage, quality gate | non-blocking, files a `sonar-quality-gate` issue |
 | local | `.husky/pre-commit` | `npm run typecheck` + `npm run lint` before every commit | ✅ local |
 
