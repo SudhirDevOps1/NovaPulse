@@ -6,9 +6,12 @@
 #                           branch (a single commit — the repo never grows).
 #  any run                → tools/gh-build.js rebuilds site/ from the fresh
 #                           state and deploys it to GitHub Pages.
-#  push (site-affecting paths only) → same build + deploy. Docs, tests, lib or
-#                           server.js changes do NOT redeploy Pages; the
-#                           5-minute schedule above still refreshes the data.
+#  every run (push, schedule, manual) → probe, save state, rebuild site/ and
+#                           deploy it to Pages. Probing used to be skipped on
+#                           `push` (it only re-deployed the previous state), so
+#                           a freshly edited config/monitors.json sat invisible
+#                           until the next scheduled run — and this repo's
+#                           schedule has been arriving hours late.
 #
 # First-time setup: Settings → Pages → Source: "GitHub Actions", then add
 # TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID as repository secrets (optional).
@@ -70,7 +73,6 @@ jobs:
           fi
 
       - name: Check monitors
-        if: github.event_name != 'push'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -84,7 +86,6 @@ jobs:
         run: node tools/gh-check.js
 
       - name: Save state
-        if: github.event_name != 'push'
         shell: bash
         run: |
           git config user.name "uptime-bot"
