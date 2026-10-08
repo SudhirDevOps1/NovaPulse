@@ -152,7 +152,15 @@ function validateMonitor(body = {}) {
 function publicMonitor(monitor) {
 	const payload = { ...monitor, uptime24h: store.uptime24h(monitor) };
 	delete payload.rollups;
+	// Custom probe headers routinely carry `Authorization: …` and the response
+	// snippet is the exfiltration half of an SSRF — neither leaves the server.
+	// `hasHeaders` lets the edit form offer a "remove saved headers" control
+	// without ever echoing the values back.
+	const savedHeaders = monitor.headers;
 	delete payload.headers;
+	payload.hasHeaders = Boolean(
+		savedHeaders && !Array.isArray(savedHeaders) && typeof savedHeaders === 'object' && Object.keys(savedHeaders).length,
+	);
 	if (payload.lastCheck) {
 		const cleanCheck = { ...payload.lastCheck };
 		delete cleanCheck.responseSnippet;

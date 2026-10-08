@@ -770,6 +770,15 @@ export function openMonitorForm({ monitor, onSubmit }) {
 		placeholder: 'Authorization: Bearer token\nX-Environment: prod',
 		text: headersText,
 	});
+	// The API never echoes stored header values, so an untouched textarea has to
+	// *omit* the field (PATCH keeps what is stored) instead of sending `{}`,
+	// which would silently wipe them. `hasHeaders` is what makes removal an
+	// explicit, deliberate choice.
+	const hadSavedHeaders = Boolean(monitor?.hasHeaders);
+	const removeHeadersInput = h('input', { type: 'checkbox', name: 'removeheaders' });
+	const headersHint = hadSavedHeaders
+		? 'One "Name: value" per line. Leave blank to keep the saved headers.'
+		: 'One "Name: value" per line, up to 10 headers.';
 	const bodyArea = h('textarea', {
 		class: 'input textarea',
 		name: 'body',
@@ -856,9 +865,17 @@ export function openMonitorForm({ monitor, onSubmit }) {
 				h('label', { class: 'field span-2' }, [
 					h('span', { text: 'Custom headers' }),
 					headersArea,
-					h('span', { class: 'hint', text: 'One "Name: value" per line, up to 10 headers.' }),
+					h('span', { class: 'hint', text: headersHint }),
 					headersError,
 				]),
+				// Own grid cell: nesting a <label> inside the headers <label> would
+				// make a click on this text focus the textarea instead.
+				hadSavedHeaders
+					? h('label', { class: 'field checkbox-field' }, [
+							removeHeadersInput,
+							h('span', { text: 'Remove saved headers' }),
+						])
+					: null,
 				h('label', { class: 'field span-2' }, [
 					h('span', { text: 'Request body' }),
 					bodyArea,
@@ -980,14 +997,21 @@ export function openMonitorForm({ monitor, onSubmit }) {
 			statusInput.setAttribute('aria-invalid', 'true');
 			valid = false;
 		}
+		const typedHeaders = headersArea.value.trim();
 		const parsedHeaders = parseHeaders(headersArea.value);
 		if (parsedHeaders.error) {
 			headersError.textContent = parsedHeaders.error;
 			headersArea.setAttribute('aria-invalid', 'true');
 			valid = false;
-		} else {
+		} else if (typedHeaders) {
+			// New values typed in → replace.
 			payload.headers = parsedHeaders.headers;
+		} else if (removeHeadersInput.checked) {
+			// `null` is the documented "clear this field" signal for PATCH.
+			payload.headers = null;
 		}
+		// Blank and not checked → leave `headers` off entirely, so PATCH keeps
+		// the stored values the API deliberately never echoes back.
 		if (!valid) return;
 
 		saveBtn.disabled = true;
