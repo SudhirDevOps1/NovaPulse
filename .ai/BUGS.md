@@ -13,7 +13,53 @@
 
 ## 1 · Open incidents
 
-_No open incidents — every registered defect is fixed and verified in CI._
+### BUG-2026-0012 — the nightly deep audit never ran: CodeQL init, the Semgrep upload and the tracking issue all broke
+
+| field | value |
+| --- | --- |
+| status | 🟡 **OPEN** — 2026-10-08. Diagnosed from **CI-verified** Darwaza 3 run **37707281209** (schedule, head `c0f0e82`); fix is committed in PR #7 (`ci/fix-nightly-darwaza3`, head `bbb454a`) and the entry closes only when the next scheduled or `workflow_dispatch` run is green, at which point that run ID is recorded here |
+| severity | **high** — the repo's only security sweep went red on its very first run, and the failure path meant the tracking issue it exists to open was never opened |
+| area | `.github/codeql/codeql-config.yml` · `.github/workflows/security-scan.yml` (`semgrep` and `notify` jobs) |
+| introduced | the original Darwaza 3 wiring; the label gap surfaced only because this repo has never had `security` or `security-nightly` labels |
+| rule produced | no new rule — **L-32** (records and docs stay in sync) applied to `.ai/SECURITY.md` and the `vibe-security` skill |
+
+**Symptom**
+> Run **37707281209** (2026-10-08 00:20 UTC, `schedule`) reported 3 of 4 jobs
+> failed: `Initialize CodeQL`, `Upload Semgrep SARIF` and `Report status`.
+> `Run Semgrep` and `NPM critical/high CVE audit` were green — there were no
+> findings — so nothing in the code was actually wrong.
+
+**Root cause** (from that run's logs)
+
+1. **CodeQL** aborted at init: `A fatal error occurred: Specifier for external
+   repository is invalid: security/extended`. The config's `uses:` takes a
+   hyphenated built-in suite (`security-extended`); with a slash the CLI parses
+   the value as an external repository specifier and stops. The same file also
+   carried a `languages:` key, which is not a configuration-file property
+   (`Invalid property specified … Ignoring it` on every run).
+2. **Semgrep** produced `semgrep-report.json` with `--json` — Semgrep's own
+   schema (`version: 2.1.0`, `results`/`errors`, no `runs`) — and `upload-sarif`
+   rejected it: `Unable to upload … not valid SARIF … instance requires
+   property "runs"`.
+3. **notify** died on `could not add label: 'security-nightly' not found`
+   (exit 1): the repo has neither `security-nightly` nor `security`, so the
+   artefact this job exists to create was never created.
+
+**Fix**
+
+- `codeql-config.yml`: `uses: security/extended` → `uses: security-extended`;
+  `languages:` removed (the workflow already passes
+  `languages: javascript-typescript` to `init`).
+- `security-scan.yml` (`semgrep`): `--sarif --output semgrep.sarif`, consumed by
+  `upload-sarif` and the `semgrep-report` artifact; `--error` still fails the
+  step when findings exist. `.gitignore` now ignores `semgrep.sarif`.
+- `security-scan.yml` (`notify`): both labels are created idempotently
+  (`gh label create … --force || true`) before reporting, and issue creation
+  falls back to an unlabelled issue.
+
+**Verification:** **pending CI.** PR #7 must land, then the next scheduled run
+(cron `30 20 * * *` UTC) or a manual `workflow_dispatch` of Darwaza 3 must show
+all four jobs green; that run ID replaces the status line above.
 
 ---
 
