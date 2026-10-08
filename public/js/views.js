@@ -291,14 +291,36 @@ function chip(label, value) {
 }
 
 function incidentRow(incident, { withName = true } = {}) {
-	return h('div', { class: 'list-item' }, [
+	const mainNodes = [
+		h('b', { text: withName ? incident.name : incident.reason || '—' }),
+		h('span', { text: withName ? incident.reason || '' : incident.name }),
+	];
+	if (incident.responseSnippet) {
+		mainNodes.push(
+			h('details', { class: 'incident-details-preview' }, [
+				h('summary', { class: 'text-xs muted cursor-pointer', text: 'Error preview ▾' }),
+				h('pre', { class: 'code-snippet', text: incident.responseSnippet }),
+			])
+		);
+	}
+	if (incident.screenshotUrl && incident.type === 'down') {
+		mainNodes.push(
+			h('div', { class: 'incident-thumb-wrap' }, [
+				h('img', {
+					class: 'incident-thumbnail',
+					src: incident.screenshotUrl,
+					alt: `${incident.name} snapshot`,
+					loading: 'lazy',
+					onerror: (e) => { e.target.parentElement.style.display = 'none'; },
+				}),
+			])
+		);
+	}
+	return h('div', { class: 'list-item incident-item' }, [
 		h('span', {
 			class: `status status-${incident.type === 'down' ? 'down' : 'up'}`,
 		}, [h('i', { class: 'dot' }), incident.type === 'down' ? 'down' : 'recovered']),
-		h('div', { class: 'list-main' }, [
-			h('b', { text: withName ? incident.name : incident.reason || '—' }),
-			h('span', { text: withName ? incident.reason || '' : incident.name }),
-		]),
+		h('div', { class: 'list-main' }, mainNodes),
 		h('div', { class: 'list-end' }, [
 			h('div', { text: fmt.relative(incident.at) }),
 			h('div', { text: fmt.time(incident.at) }),
@@ -513,6 +535,7 @@ export function buildMonitorBody(monitor, ctx) {
 	const history = monitor.history || [];
 	const last = monitor.lastCheck;
 	const isHttps = /^https:/i.test(monitor.url);
+	const isWeb = monitor.type !== 'tcp' && /^https?:\/\//i.test(monitor.url);
 
 	const stats = h('div', { class: 'kv' }, [
 		cell('Status', monitor.enabled ? monitor.status : 'paused'),
@@ -600,9 +623,20 @@ export function buildMonitorBody(monitor, ctx) {
 			h('span', { text: 'Back to monitors' }),
 		]),
 		monitor.lastCheck?.error && monitor.status === 'down'
-			? h('div', { class: 'banner error', role: 'alert' }, [
+			? h('div', { class: 'banner error incident-diagnosis-box', role: 'alert' }, [
 					iconEl('alert'),
-					h('span', { text: monitor.lastCheck.error }),
+					h('div', { style: 'width: 100%;' }, [
+						h('div', { class: 'incident-diagnosis-head' }, [
+							h('b', { text: `Outage: ${monitor.lastCheck.error}` }),
+							monitor.lastCheck.status ? h('span', { class: 'chip chip-sm text-xs', text: `HTTP ${monitor.lastCheck.status}` }) : null,
+						]),
+						monitor.lastCheck.responseSnippet
+							? h('details', { class: 'incident-details-preview', open: true }, [
+									h('summary', { class: 'text-xs muted cursor-pointer', text: 'Error response snippet' }),
+									h('pre', { class: 'code-snippet', text: monitor.lastCheck.responseSnippet }),
+							  ])
+							: null,
+					]),
 			  ])
 			: null,
 		monitor.status === 'degraded'
@@ -614,6 +648,32 @@ export function buildMonitorBody(monitor, ctx) {
 			  ])
 			: null,
 		sslWarn,
+		isWeb
+			? h('div', { class: 'drawer-section visual-preview-section' }, [
+					h('div', { class: 'drawer-section-head' }, [
+						h('h3', { text: 'Visual Website Snapshot' }),
+						h('a', {
+							class: 'btn btn-xs btn-outline',
+							href: monitor.url,
+							target: '_blank',
+							rel: 'noopener noreferrer',
+							text: 'Open site ↗',
+						}),
+					]),
+					h('div', { class: 'preview-container' }, [
+						h('img', {
+							class: 'monitor-screenshot-preview',
+							src: `https://s0.wp.com/mshots/v1/${encodeURIComponent(monitor.url)}?w=800&h=500`,
+							alt: `${monitor.name} live preview`,
+							loading: 'lazy',
+							onerror: (e) => {
+								const sec = e.target.closest('.visual-preview-section');
+								if (sec) sec.style.display = 'none';
+							},
+						}),
+					]),
+			  ])
+			: null,
 		h('div', { class: 'drawer-section' }, [
 			h('h3', { text: 'Key metrics' }),
 			stats,

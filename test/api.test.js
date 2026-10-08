@@ -308,7 +308,7 @@ test('ALLOW_ORIGIN honours a comma-separated list of origins', async () => {
 });
 
 test('probe helpers parse status specs and tcp targets', () => {
-	const { parseStatusSpec, parseTcpTarget, statusMatches } = require('../lib/probe');
+	const { parseStatusSpec, parseTcpTarget, statusMatches, generateScreenshotUrl } = require('../lib/probe');
 	assert.deepEqual(parseStatusSpec('200,204'), [[200, 200], [204, 204]]);
 	assert.deepEqual(parseStatusSpec('500-599'), [[500, 599]]);
 	assert.ok(statusMatches(204, parseStatusSpec('200-299')));
@@ -317,4 +317,9 @@ test('probe helpers parse status specs and tcp targets', () => {
 	assert.deepEqual(parseStatusSpec('nonsense'), [[200, 399]]);
 	assert.deepEqual(parseTcpTarget('tcp://db.internal:5432'), { host: 'db.internal', port: 5432 });
 	assert.equal(parseTcpTarget('db.internal'), null);
+	assert.equal(
+		generateScreenshotUrl('https://example.com/api/test'),
+		'https://s0.wp.com/mshots/v1/https%3A%2F%2Fexample.com?w=800&h=500'
+	);
+	assert.equal(generateScreenshotUrl('tcp://db.internal:5432'), null);
 });
