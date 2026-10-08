@@ -176,7 +176,7 @@ jobs:
           BASE_SHA="$(git rev-parse HEAD)"
           git config user.name "uptime-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          DEADLINE=$((SECONDS + 330)) # 5 h 30 m, inside the 355-min job timeout
+          DEADLINE=$((SECONDS + 19800)) # 5 h 30 m, inside the 355-min job timeout
           iteration=0
           while [ "$SECONDS" -lt "$DEADLINE" ]; do
             iteration=$((iteration + 1))
