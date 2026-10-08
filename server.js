@@ -8,7 +8,7 @@ const pkg = require('./package.json');
 const logger = require('./lib/logger');
 const store = require('./lib/store');
 const { rateLimit } = require('./lib/limits');
-const { createScheduler } = require('./lib/checker');
+const { createScheduler, handlePushPing, checkerEvents } = require('./lib/checker');
 const { parseTcpTarget, isPrivateHost, allowPrivateTargets } = require('./lib/probe');
 const analytics = require('./lib/analytics');
 const { badgeSvg } = require('./lib/badge');
@@ -41,8 +41,13 @@ function validateMonitor(body = {}) {
 	if (!name) errors.push('name is required');
 	if (name.length > 60) errors.push('name must be 60 characters or fewer');
 
-	let type = body.type === 'tcp' ? 'tcp' : 'http';
-	if (!url) {
+	let type = 'http';
+	if (body.type === 'tcp') type = 'tcp';
+	else if (body.type === 'push' || body.type === 'heartbeat') type = 'push';
+
+	if (type === 'push') {
+		value.url = url || 'push://heartbeat';
+	} else if (!url) {
 		errors.push('url is required');
 	} else if (url.length > 2048) {
 		// Long enough to break the alert channels: Telegram rejects >4096 chars,
@@ -65,7 +70,7 @@ function validateMonitor(body = {}) {
 	}
 	value.type = type;
 
-	const intervalSec = body.intervalSec === undefined ? 60 : Number(body.intervalSec);
+	const intervalSec = body.intervalSec === undefined ? (type === 'push' ? 300 : 60) : Number(body.intervalSec);
 	const timeoutMs = body.timeoutMs === undefined ? 10000 : Number(body.timeoutMs);
 	if (!Number.isFinite(intervalSec) || intervalSec < 10 || intervalSec > 86400) {
 		errors.push('intervalSec must be between 10 and 86400');
@@ -75,6 +80,15 @@ function validateMonitor(body = {}) {
 	}
 	value.intervalSec = intervalSec;
 	value.timeoutMs = timeoutMs;
+
+	if (type === 'push') {
+		const graceSec = body.graceSec === undefined ? 60 : Number(body.graceSec);
+		if (!Number.isFinite(graceSec) || graceSec < 10 || graceSec > 86400) {
+			errors.push('graceSec must be between 10 and 86400');
+		} else {
+			value.graceSec = Math.round(graceSec);
+		}
+	}
 
 	const method = body.method === undefined ? 'GET' : String(body.method).toUpperCase();
 	if (!HTTP_METHODS.includes(method)) errors.push('method must be GET, HEAD, POST, PUT, PATCH or DELETE');
@@ -197,11 +211,11 @@ function securityHeaders(req, res, next) {
 		? "script-src 'self' https://maps.googleapis.com https://maps.gstatic.com"
 		: "script-src 'self'";
 	const connectSrc = externalMaps
-		? "connect-src 'self' https://maps.googleapis.com https://maps.gstatic.com https://maps.google.com"
-		: "connect-src 'self'";
+		? "connect-src 'self' https://maps.googleapis.com https://maps.gstatic.com https://maps.google.com https://*.basemaps.cartocdn.com https://*.openstreetmap.org https://*.tile.openstreetmap.org https://*.tile.openstreetmap.de https://tile.openstreetmap.de"
+		: "connect-src 'self' https://*.basemaps.cartocdn.com https://*.openstreetmap.org https://*.tile.openstreetmap.org https://*.tile.openstreetmap.de https://tile.openstreetmap.de";
 	const imgSrc = externalMaps
-		? "img-src 'self' data: https://maps.gstatic.com https://*.googleapis.com https://s0.wp.com"
-		: "img-src 'self' data: https://s0.wp.com";
+		? "img-src 'self' data: https://maps.gstatic.com https://*.googleapis.com https://s0.wp.com https://*.basemaps.cartocdn.com https://*.openstreetmap.org https://*.tile.openstreetmap.org https://*.tile.openstreetmap.de https://tile.openstreetmap.de"
+		: "img-src 'self' data: https://s0.wp.com https://*.basemaps.cartocdn.com https://*.openstreetmap.org https://*.tile.openstreetmap.org https://*.tile.openstreetmap.de https://tile.openstreetmap.de";
 	res.setHeader(
 		'Content-Security-Policy',
 		[
@@ -344,6 +358,39 @@ function createApp() {
 			now: new Date().toISOString(),
 		});
 	});
+
+	// Real-time Server-Sent Events stream for instant dashboard & status updates
+	app.get('/api/stream', (req, res) => {
+		res.writeHead(200, {
+			'Content-Type': 'text/event-stream',
+			'Cache-Control': 'no-cache, no-transform',
+			'Connection': 'keep-alive',
+			'X-Accel-Buffering': 'no',
+		});
+		res.write(': connected\n\n');
+		sseClients.add(res);
+		req.on('close', () => {
+			sseClients.delete(res);
+		});
+	});
+
+	// Dead Man's Switch / Cron Heartbeat push ping endpoint
+	const pingHandler = (req, res) => {
+		const monitor = handlePushPing(req.params.id);
+		if (!monitor) return res.status(404).json({ error: 'Monitor not found' });
+		res.json({
+			ok: true,
+			id: monitor.id,
+			name: monitor.name,
+			status: monitor.status,
+			lastPingAt: monitor.lastPingAt,
+		});
+	};
+
+	app.get('/api/ping/:id', pingHandler);
+	app.post('/api/ping/:id', pingHandler);
+	app.get('/api/push/:id', pingHandler);
+	app.post('/api/push/:id', pingHandler);
 
 	app.get('/api/stats', (req, res) => {
 		res.json(store.stats());
@@ -590,6 +637,33 @@ function createApp() {
 }
 
 const scheduler = createScheduler(store);
+const sseClients = new Set();
+
+function broadcastSse(eventType, data) {
+	if (!sseClients.size) return;
+	const payload = `event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`;
+	for (const client of sseClients) {
+		try {
+			client.write(payload);
+		} catch {
+			sseClients.delete(client);
+		}
+	}
+}
+
+checkerEvents.on('check', (evt) => {
+	broadcastSse('check', evt);
+});
+
+setInterval(() => {
+	for (const client of sseClients) {
+		try {
+			client.write(': ping\n\n');
+		} catch {
+			sseClients.delete(client);
+		}
+	}
+}, 25000).unref();
 
 if (require.main === module) {
 	const app = createApp();

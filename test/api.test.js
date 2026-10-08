@@ -47,7 +47,7 @@ test('monitor lifecycle: create, list, fetch, delete', async () => {
 	const created = await fetch(`${base}/api/monitors`, {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({ name: 'Local', url: 'http://127.0.0.1:1/', intervalSec: 60 }),
+		body: JSON.stringify({ name: 'Local', url: 'https://example.com/lifecycle', intervalSec: 60 }),
 	});
 	assert.equal(created.status, 201);
 	const monitor = await created.json();
@@ -162,7 +162,7 @@ test('advanced monitor fields validate and can be cleared', async () => {
 		headers: { 'content-type': 'application/json' },
 		body: JSON.stringify({
 			name: 'API',
-			url: 'tcp://127.0.0.1:1',
+			url: 'tcp://example.com:443',
 			type: 'tcp',
 			expectedStatus: '200-299,304',
 			expectedKeyword: 'ok',
@@ -347,4 +347,43 @@ test('public endpoint sanitizes internal responseSnippet and headers', async () 
 		assert.equal(inc.responseSnippet, undefined);
 		assert.equal(inc.responseHeaders, undefined);
 	}
+});
+
+test('push / heartbeat monitor lifecycle and /api/ping endpoint', async () => {
+	const created = await fetch(`${base}/api/monitors`, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({
+			name: 'Backup Cron Job',
+			type: 'push',
+			intervalSec: 300,
+			graceSec: 60,
+		}),
+	});
+	assert.equal(created.status, 201);
+	const monitor = await created.json();
+	assert.equal(monitor.type, 'push');
+	assert.equal(monitor.url, 'push://heartbeat');
+
+	const pingRes = await fetch(`${base}/api/ping/${monitor.id}`, { method: 'POST' });
+	assert.equal(pingRes.status, 200);
+	const pingData = await pingRes.json();
+	assert.equal(pingData.ok, true);
+	assert.equal(pingData.status, 'up');
+	assert.ok(pingData.lastPingAt);
+
+	const fetched = await (await fetch(`${base}/api/monitors/${monitor.id}`)).json();
+	assert.equal(fetched.status, 'up');
+	assert.equal(fetched.lastPingAt, pingData.lastPingAt);
+
+	const delRes = await fetch(`${base}/api/monitors/${monitor.id}`, { method: 'DELETE' });
+	assert.equal(delRes.status, 204);
+});
+
+test('SSE stream endpoint /api/stream returns event-stream', async () => {
+	const ac = new AbortController();
+	const streamRes = await fetch(`${base}/api/stream`, { signal: ac.signal });
+	assert.equal(streamRes.status, 200);
+	assert.match(streamRes.headers.get('content-type') || '', /text\/event-stream/);
+	ac.abort();
 });

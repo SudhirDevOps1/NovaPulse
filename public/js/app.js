@@ -822,7 +822,20 @@ function wireChrome() {
 	});
 }
 
-/* ---------------- boot ---------------- */
+function connectSse() {
+	if (isStatic || typeof EventSource === 'undefined') return;
+	try {
+		const sse = new EventSource('/api/stream');
+		sse.addEventListener('check', () => {
+			refresh({ silent: true });
+		});
+		sse.addEventListener('error', () => {
+			// Browser reconnects automatically
+		});
+	} catch {
+		// EventSource not supported or blocked
+	}
+}
 
 async function boot() {
 	applyTheme();
@@ -841,6 +854,7 @@ async function boot() {
 	}
 
 	startPolling();
+	connectSse();
 	setInterval(updateLastUpdatedTick, 1000);
 	updateLastUpdatedTick();
 

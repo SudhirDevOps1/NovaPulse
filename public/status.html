@@ -9,7 +9,7 @@
     <title>Service status — NovaPulse 2026</title>
     <meta
       name="description"
-      content="Live service status, response times and 30-day uptime history."
+      content="Live public service status, real-time edge telemetry, response times, and 30-day uptime history."
     />
     <meta
       name="theme-color"
@@ -24,16 +24,21 @@
     <meta name="color-scheme" content="dark light" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' https://maps.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://maps.gstatic.com https://*.googleapis.com https://s0.wp.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://maps.googleapis.com;"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://s0.wp.com https://*.basemaps.cartocdn.com https://*.openstreetmap.org https://*.tile.openstreetmap.org https://*.tile.openstreetmap.de https://tile.openstreetmap.de; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.basemaps.cartocdn.com https://*.openstreetmap.org https://*.tile.openstreetmap.org https://*.tile.openstreetmap.de https://tile.openstreetmap.de;"
     />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+    <link rel="stylesheet" href="vendor/novapulse-edge-map/novapulse.css" />
     <link rel="stylesheet" href="style.css" />
+    <script src="vendor/leaflet/leaflet.js"></script>
+    <script src="vendor/novapulse-edge-map/novapulse.js"></script>
   </head>
   <body>
     <main class="status-page">
       <div class="status-inner">
+        <!-- Top Navigation Header -->
         <header class="status-top">
-          <a class="brand" href="./">
+          <a class="brand" href="./" aria-label="NovaPulse Dashboard">
             <span class="brand-mark">
               <svg class="icon icon-lg" viewBox="0 0 24 24" aria-hidden="true">
                 <path
@@ -48,63 +53,198 @@
             </span>
             <span class="brand-text">
               NovaPulse
-              <small>service status</small>
+              <small>public telemetry status</small>
             </span>
           </a>
-          <span
-            class="status-overall"
-            id="status-overall"
-            data-state="loading"
-            role="status"
-          >
-            Loading status…
-          </span>
+
+          <div class="status-top-actions">
+            <span class="status-live-pulse" id="status-live-indicator">
+              <i class="pulse-dot"></i> Live Telemetry
+            </span>
+            <button
+              type="button"
+              class="btn btn-sm btn-ghost status-refresh-btn"
+              id="status-refresh-btn"
+              title="Refresh status now"
+              aria-label="Refresh status now"
+            >
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+              <span class="refresh-countdown" id="status-countdown">60s</span>
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-ghost status-theme-btn"
+              id="status-theme-btn"
+              title="Toggle dark/light theme"
+              aria-label="Toggle dark/light theme"
+            >
+              <svg class="icon icon-theme" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+            <a href="./" class="btn btn-sm btn-outline status-dash-link">
+              Dashboard ↗
+            </a>
+          </div>
         </header>
 
-        <section class="card status-hero" aria-labelledby="status-title">
-          <h1 id="status-title">Service status</h1>
-          <p class="status-message" id="status-message" hidden></p>
-          <p class="status-updated">
-            Last updated <span id="status-updated">—</span>
-          </p>
+        <!-- Primary Glowing Hero Status Banner -->
+        <section
+          class="card status-hero-banner"
+          id="status-hero"
+          data-state="loading"
+          aria-labelledby="status-title"
+        >
+          <div class="hero-status-glow"></div>
+          <div class="hero-status-content">
+            <div class="hero-status-icon-wrap" id="status-icon-wrap">
+              <svg class="hero-status-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
+                <path d="M12 6v6l4 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="hero-status-text">
+              <h1 id="status-title">Checking service health…</h1>
+              <p class="status-subtitle" id="status-subtitle">
+                Gathering real-time telemetry from edge vantage points…
+              </p>
+              <div class="status-broadcast-msg" id="status-message" hidden></div>
+            </div>
+            <div class="hero-status-meta">
+              <span class="status-overall-badge" id="status-overall" data-state="loading" role="status">
+                Loading…
+              </span>
+              <span class="status-updated-text">
+                Updated <strong id="status-updated">—</strong>
+              </span>
+            </div>
+          </div>
         </section>
 
+        <!-- 4-Card Telemetry KPI Summary Grid -->
+        <section class="status-kpi-grid" id="status-kpis" aria-label="Fleet Telemetry Summary">
+          <div class="card status-kpi-card">
+            <span class="kpi-label">Fleet Uptime (30d)</span>
+            <div class="kpi-value-row">
+              <span class="kpi-val" id="kpi-uptime">—</span>
+              <span class="kpi-badge good" id="kpi-uptime-badge">Target 99.9%</span>
+            </div>
+            <span class="kpi-sub" id="kpi-uptime-sub">Rolling 30-day availability</span>
+          </div>
+
+          <div class="card status-kpi-card">
+            <span class="kpi-label">Active Services</span>
+            <div class="kpi-value-row">
+              <span class="kpi-val" id="kpi-services">—</span>
+              <span class="kpi-badge" id="kpi-services-badge">Probed</span>
+            </div>
+            <span class="kpi-sub" id="kpi-services-sub">All synthetic probes active</span>
+          </div>
+
+          <div class="card status-kpi-card">
+            <span class="kpi-label">Average Latency</span>
+            <div class="kpi-value-row">
+              <span class="kpi-val highlight" id="kpi-latency">—</span>
+              <span class="kpi-badge" id="kpi-latency-badge">p50 TTFB</span>
+            </div>
+            <span class="kpi-sub">Across active healthy endpoints</span>
+          </div>
+
+          <div class="card status-kpi-card">
+            <span class="kpi-label">Incident Streak</span>
+            <div class="kpi-value-row">
+              <span class="kpi-val" id="kpi-streak">—</span>
+              <span class="kpi-badge info" id="kpi-streak-badge">30d Window</span>
+            </div>
+            <span class="kpi-sub" id="kpi-streak-sub">Days without active disruption</span>
+          </div>
+        </section>
+
+        <!-- Global Edge Probe Telemetry Map (100% Free, Zero-API-Key Vector Map) -->
+        <section class="card status-map-card" aria-label="Global Edge Probe Telemetry">
+          <div class="card-head status-map-head">
+            <div>
+              <div class="card-title">🌐 Global Edge Probe Vantage Points</div>
+              <p class="card-subtitle">8 regional vantage points probing live targets with zero-dependency HTTP/TCP probes</p>
+            </div>
+            <span class="badge badge-accent">100% Free Vector Telemetry</span>
+          </div>
+          <div id="status-map-container" class="telemetry-map status-map-embed"></div>
+        </section>
+
+        <!-- Monitored Services Detailed Breakdown -->
         <section class="card status-section" aria-label="Monitored services">
+          <div class="card-head status-services-head">
+            <div>
+              <div class="card-title">Monitored Services</div>
+              <p class="card-subtitle">Individual service health, live response times and 30-day uptime bars</p>
+            </div>
+            <span class="badge" id="status-services-count">Loading…</span>
+          </div>
           <div class="status-list" id="status-services">
-            <div class="skeleton status-skeleton"></div>
             <div class="skeleton status-skeleton"></div>
             <div class="skeleton status-skeleton"></div>
           </div>
         </section>
 
+        <!-- Recent Incidents & Post-Mortems Section -->
         <section class="card status-section" aria-label="Recent incidents">
           <div class="card-head">
-            <div class="card-title">Recent incidents</div>
+            <div>
+              <div class="card-title">Recent Incidents & Maintenance</div>
+              <p class="card-subtitle">Detailed timeline of disruptions and verified automatic recoveries</p>
+            </div>
           </div>
           <div class="status-incidents" id="status-incidents">
             <div class="skeleton status-skeleton"></div>
           </div>
         </section>
 
+        <!-- Status Page Footer -->
         <footer class="status-foot">
-          <span class="status-foot-brand">
-            Monitored with
-            <a href="./">NovaPulse</a>
-            ·
-            <a
-              href="https://github.com/SudhirDevOps1/NovaPulse"
-              target="_blank"
-              rel="noreferrer noopener"
-              >Source on GitHub</a
-            >
-          </span>
-          <img
-            class="status-badge"
-            id="status-badge"
-            alt="Fleet uptime badge"
-            width="140"
-            height="20"
-          />
+          <div class="status-foot-left">
+            <span class="status-foot-brand">
+              Monitored autonomously with
+              <a href="./">NovaPulse</a>
+              ·
+              <a
+                href="https://github.com/SudhirDevOps1/NovaPulse"
+                target="_blank"
+                rel="noreferrer noopener"
+                >GitHub Repository</a
+              >
+            </span>
+            <div class="status-foot-links">
+              <a href="api/public/status" target="_blank" rel="noopener">Public JSON Feed</a>
+              <span>·</span>
+              <a href="api/badge/fleet.svg" target="_blank" rel="noopener">Fleet SVG Badge</a>
+            </div>
+          </div>
+          <div class="status-foot-right">
+            <img
+              class="status-badge"
+              id="status-badge"
+              alt="Fleet uptime badge"
+              width="140"
+              height="20"
+            />
+          </div>
         </footer>
       </div>
     </main>

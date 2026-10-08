@@ -1,9 +1,10 @@
 # ═══════════════════════════════════════════════════════════════════════════
 # DARWAZA 2 — Heavy PR Gate (E2E + DAST)
 # ═══════════════════════════════════════════════════════════════════════════
-# Runs against Pull Requests that target `main`, after Darwaza 1 has already
-# proven the code compiles, lints and passes unit tests. This gate answers the
-# two questions Darwaza 1 cannot:
+# Runs against Pull Requests that target `main`, and against pushes to `main`
+# itself — an e2e/ZAP regression merged through an admin bypass used to go
+# completely unnoticed. Darwaza 1 has already proven the code compiles, lints
+# and passes unit tests. This gate answers the two questions Darwaza 1 cannot:
 #
 #   1. Does the real UI actually work end-to-end in a browser?
 #      → Playwright, Desktop + Mobile viewports, artifacts on failure.
@@ -18,6 +19,8 @@
 name: Darwaza 2 · Heavy PR Gate
 
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:

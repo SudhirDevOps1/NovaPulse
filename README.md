@@ -47,6 +47,7 @@
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/SudhirDevOps1/NovaPulse)
 [![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/SudhirDevOps1/NovaPulse)
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/SudhirDevOps1/NovaPulse)
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new)
 
 </div>
 
@@ -145,15 +146,16 @@ flowchart TD
 - ⏱️ **Microsecond Timing Waterfall**: Exact breakdown per probe: `DNS` ➔ `Connect` ➔ `TLS Handshake` ➔ `TTFB` ➔ `Download`.
 
 ### 📸 Visual Screenshots & Error Diagnostics (Better Stack Grade)
-- 🖼️ **Live Website Visual Snapshots**: Zero-API, high-reliability headless preview screenshots rendered automatically for every HTTP/HTTPS target.
-- 🗂️ **Interactive Incident Drawer**: Direct visual thumbnail preview inside monitor details, with instant "Open website ↗" deep-links.
-- 📝 **Raw Outage Response Body Snippets**: Captures the first 1,024 bytes of HTTP 4xx/5xx responses (e.g., `502 Bad Gateway`, `Database Connection Timed Out`, `Cloudflare DDoS screen`) so you understand what happened without searching server logs.
-- 🏷️ **Diagnostic Header Inspection**: Captures `Server`, `Content-Type`, and response headers during incidents for instant debugging.
+- 🖼️ **Live Website Visual Snapshots**: every HTTP/HTTPS target gets a WordPress **mShots** preview (`s0.wp.com/mshots/v1/…`) — a free, third-party, best-effort service. Previews are generated lazily by your browser and are not captured by NovaPulse itself.
+- 🗂️ **Interactive Incident Drawer**: thumbnail preview inside monitor details, with instant "Open website ↗" deep-links.
+- 📝 **Raw Outage Response Body Snippets**: the first 1,024 bytes of a failing response are captured server-side and included in **alert messages** (first 200 bytes) and in the structured log, so you can see `502 Bad Gateway` or a `Database Connection Timed Out` page without opening the server.
+- 🏷️ **Diagnostic Header Inspection**: `Server`, `Content-Type` and the other response headers are captured with the incident and logged.
+- 🔒 **Snippets stay on the server**: neither the snippet nor the headers are returned by `GET /api/monitors` or `GET /api/incidents` — a probe that reads an internal service must not be able to hand its body back out over the API.
 
 ### 🗺️ Google Maps Platform Global Telemetry Map
-- 🌍 **Interactive Edge Telemetry Map**: Visualizes global edge probing nodes (Mumbai, Singapore, Frankfurt, London, San Jose, Ashburn, Tokyo) and target server locations worldwide.
-- 📍 **AdvancedMarkerElement Pins**: Custom glowing pins indicating real-time health (Operational 🟢, Degraded 🟠, Outage 🔴) with interactive latency InfoWindows.
-- 🛡️ **Terms & Tracking Compliant**: Uses modern Google Maps JavaScript API with built-in attribution (`internalUsageAttributionIds: ["gmp_git_agentskills_v1"]`).
+- 🌍 **Interactive Reference Map**: plots seven labelled reference locations (Mumbai, Singapore, Frankfurt, London, San Jose, Ashburn, Tokyo) as basemap markers, plus one marker per monitor carrying its **real** name, URL, status and latency.
+- 📍 **Requires `GOOGLE_MAPS_API_KEY`**: without one the card falls back to an explanatory banner and no Maps script is ever loaded. Marker *positions* are illustrative — NovaPulse does not geolocate a target, and each popup says so.
+- 🛡️ **Terms & Tracking Compliant**: uses the modern Google Maps JavaScript API (`google.maps.marker.AdvancedMarkerElement`) with built-in attribution (`internalUsageAttributionIds: ["gmp_git_agentskills_v1"]`).
 
 ### 📊 2026 Telemetry & Analytics (Server-Computed)
 - 📈 **Latency Percentiles**: Calculates `p50` (median), `p95` (peak), and `p99` percentiles across 24h, 7d, and 30d horizons.
@@ -202,6 +204,18 @@ Dispatches instant notifications on state changes (`Down`, `Slow / Degraded`, an
 ---
 
 ## ⚡ Quickstart
+
+> 🔒 **Read this before you deploy.** NovaPulse has **no login**:
+> * **Option B/C (Docker, VPS, Render …)** — anyone who can reach the port can
+>   read, change and delete every monitor, backup and incident.
+> * **Option A (GitHub Pages)** — the deployed site is **public**: every monitor
+>   URL, its history, the incident timeline and the generated badges are readable
+>   by anyone who has the link. Do not put credentials in monitor headers on a
+>   public Pages deployment.
+>
+> Front both with something that authenticates (Cloudflare Access, OAuth2
+> Proxy, Tailscale, a private network). Full threat model:
+> [`docs/SECURITY.md`](docs/SECURITY.md).
 
 ### Option A: Serverless GitOps Mode (₹0 Forever, Zero Card) ⭐
 
@@ -347,10 +361,24 @@ All settings configure via environment variables. The application boots with sen
 | `WEBHOOK_URL` | – | Generic HTTP POST webhook URL. |
 | `WEBHOOK_SECRET` | – | Secret token transmitted in the `x-novapulse-secret` header. |
 | `ALERT_ON_DEGRADED` | – | Set `1` to dispatch alerts when a monitor crosses its `warnMs` threshold. |
+| `ALERT_COOLDOWN_MS` | `300000` | Minimum gap between two alerts of the same kind for the same monitor. Damps a flapping endpoint from emitting a DOWN/UP pair on every check. `0` disables throttling. |
 | `SSL_WARN_DAYS` | `14` | Advance notification threshold in days for expiring TLS certificates. |
 | `SLA_TARGET` | `99.9` | Target SLA percentage displayed across dashboard cards (50–100). |
+| `ALLOW_ORIGIN` | – | Comma-separated CORS origins. Only needed if another site calls the API directly. |
+| `ALLOW_PRIVATE_TARGETS` | – | **Leave empty.** The SSRF guard refuses loopback, RFC1918, link-local (incl. `169.254.169.254`) and CGNAT targets by default. Set `1` only to deliberately monitor your own LAN. |
+| `CRON_SECRET` | – | Shared secret required by `POST /api/cron` (Vercel Cron). The only credential gate in the application. |
+| `GOOGLE_MAPS_API_KEY` | – | Browser key for the telemetry map. Restrict it by HTTP referrer in the Google console — it is served to the browser by design. Setting it also relaxes the embed/CSP policy enough for the map to actually load. |
+| `GITHUB_TOKEN` | – | Token driving the GitHub Issues downtime automation. |
+| `GH_PAT` | – | Fallback token used when `GITHUB_TOKEN` is unset. |
+| `ALLOW_FRAMING` | – | `1` relaxes `frame-ancestors` — local QA harness only, never in production. |
 
 A commented template is provided in [`.env.example`](.env.example).
+
+> ⚠️ **NovaPulse ships no built-in authentication.** Anything that can reach
+> the port can read *and modify* every monitor, backup and incident. Keep it
+> on `localhost`, a private network, or behind a reverse proxy that
+> authenticates (`nginx` + OAuth2 Proxy, Cloudflare Access, Tailscale).
+> See [`docs/SECURITY.md`](docs/SECURITY.md) for the full threat model.
 
 ---
 
@@ -358,13 +386,23 @@ A commented template is provided in [`.env.example`](.env.example).
 
 | Parameter | Limit | Enforcement Location |
 | :--- | :---: | :--- |
-| **Max Concurrent Probes** | `10` simultaneous | Probe concurrency pool |
-| **Min Check Interval** | `10` seconds | Monitor creation schema |
-| **Max Check Interval** | `86,400` seconds (24h) | Monitor creation schema |
-| **Probe Timeout Window** | `1,000` ms – `60,000` ms | Probe HTTP / TLS socket |
-| **In-Memory Check Retention** | `100` checks per monitor | Ring buffer memory cap |
-| **Max Monitored Targets** | `250` per node | In-process scheduler capacity |
-| **Global Rate Limit Window** | `240` requests / 60 seconds | Rate limiting middleware |
+| **Min Check Interval** | `10` seconds | `validateMonitor` (server.js), `store.create`, `store.load` |
+| **Max Check Interval** | `86,400` seconds (24h) | `validateMonitor`, `store.create`, `store.load` |
+| **Probe Timeout Window** | `500` ms – `60,000` ms | `validateMonitor`, `store.create`, `store.load` |
+| **Redirect Chain** | `5` hops maximum, **one shared timeout budget** for the whole chain | `lib/probe.js` (`MAX_REDIRECTS`, `deadlineAt`) |
+| **Check History Retention** | `500` rows per monitor | `store.addHistory` (`HISTORY_LIMIT`) |
+| **Incident Retention** | `500` rows | `store.pushIncident` (`INCIDENT_LIMIT`) |
+| **Hourly Rollup Buckets** | `720` (30 days) | `store.rollupCheck` (`ROLLUP_LIMIT`) |
+| **Custom Request Headers** | `10` per monitor, value ≤ `2048` chars | `validateMonitor` |
+| **URL Length** | `2048` chars | `validateMonitor` |
+| **Request Body Size** | `4096` bytes | `validateMonitor` |
+| **Tags** | `10` per monitor, ≤ `24` chars each | `validateMonitor` |
+| **Global Rate Limit Window** | `240` requests / 60 seconds | rate limiting middleware |
+
+There is deliberately **no concurrency pool and no monitor cap**: one
+in-process scheduler dispatches due checks and never overlaps two checks of
+the same monitor, so capacity follows from your own `intervalSec` choices and
+the Node event loop.
 
 ---
 
@@ -383,6 +421,8 @@ A commented template is provided in [`.env.example`](.env.example).
 | `PATCH` | `/api/monitors/:id` | Update monitor configuration (`name`, `enabled`, `intervalSec`, etc.). |
 | `DELETE` | `/api/monitors/:id` | Permanently remove a monitor and associated check history. |
 | `POST` | `/api/monitors/:id/check` | Trigger an immediate ad-hoc probe for a monitor. |
+| `GET` | `/api/stream` | Real-time Server-Sent Events (SSE) live stream for instant UI updates. |
+| `GET\|POST` | `/api/ping/:id` | Dead Man's Switch / Cron Heartbeat signal (also `/api/push/:id`). |
 | `GET` | `/api/incidents` | Incident timeline (`down` events, recoveries, and downtime durations). |
 | `GET` | `/api/badge/:id.svg` | Dynamic SVG status badge (`id=fleet` or monitor UUID). Supports `?style=for-the-badge`. |
 | `GET` | `/api/export` | Download complete state backup as JSON. |

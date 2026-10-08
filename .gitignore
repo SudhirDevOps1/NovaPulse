@@ -1,5 +1,7 @@
 node_modules/
 data/*.json
+data/*.json.tmp
+data/*.json.corrupt-*
 data/*.lock
 !data/.gitkeep
 *.log

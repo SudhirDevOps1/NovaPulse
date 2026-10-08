@@ -20,6 +20,7 @@ export default [
 			'gh-state/**',
 			'data/**',
 			'coverage/**',
+			'public/vendor/**',
 			'public/js/**/*.min.js',
 			'**/*.min.js',
 		],

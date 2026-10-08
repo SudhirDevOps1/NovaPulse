@@ -1,0 +1,326 @@
+/*!
+ * NovaPulse Edge Map — standalone stylesheet
+ * ---------------------------------------------------------------------------
+ * Only needed if you mount the map without the auto-injected stylesheet, e.g.
+ * you render markers yourself, or you load CSS ahead of JS to avoid a
+ * flash of unstyled map. Normally the JS injects this automatically.
+ *
+ * Import:  import 'novapulse-edge-map/style.css'
+ * Link:    <link rel="stylesheet" href="dist/novapulse.min.css">
+ */
+
+/* The host is a STACK (toggle / map surface / stats+table). It must not
+   clip or fix a height of its own, or the panel gets cut off and Leaflet
+   measures a collapsed pane — which parks every marker at -17000px. */
+.nps {
+  position: relative;
+  background: var(--nps-ink, #0B0F14);
+  border: 1px solid var(--nps-line, #243244);
+  border-radius: var(--nps-radius, 16px);
+  isolation: isolate;
+  width: 100%;
+}
+
+/* The surface owns the fixed height, clipping and rounded corners. */
+.nps > div[data-nps-surface] {
+  position: relative;
+  overflow: hidden;                 /* never overflow the surface */
+  border-radius: calc(var(--nps-radius, 16px) - 1px);
+  height: var(--nps-height, 420px);
+  width: 100%;
+}
+.nps > div[data-nps-surface] > .leaflet-container {
+  height: 100%;
+  width: 100%;
+}
+
+/* Keyless OSM raster is light; invert + re-tint so it reads dark. */
+.nps.nps-invert .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(185deg) brightness(.92) contrast(1.05) saturate(.55);
+}
+
+.nps .leaflet-container {
+  font: inherit;
+  background: var(--nps-ink, #0B0F14);
+}
+
+/* Entrance: scale only. Never animate opacity — the map is audited for
+   contrast at load and fading in fails AA on every control. */
+@keyframes nps-zoom-in {
+  from { transform: scale(1.06); }
+  to   { transform: scale(1); }
+}
+.nps-anim .leaflet-container {
+  animation: nps-zoom-in 1100ms cubic-bezier(.22, 1, .36, 1) both;
+  transform-origin: 50% 55%;
+}
+
+/* ── Markers ────────────────────────────────────────────────────────── */
+.nps-icon { background: none !important; border: 0 !important; }
+.nps-icon > * { position: absolute; border-radius: 9999px; }
+
+.nps-pulse {
+  inset: 0;
+  border: 2px solid var(--c);
+  opacity: 0;
+  animation: nps-pulse 2.6s cubic-bezier(.22, 1, .36, 1) infinite;
+}
+.nps-dot {
+  inset: 8px;
+  background: var(--c);
+  box-shadow:
+    0 0 0 2px var(--nps-ink, #0B0F14),
+    0 0 10px 1px var(--c),
+    0 0 22px 4px color-mix(in srgb, var(--c) 45%, transparent);
+}
+@keyframes nps-pulse {
+  0%   { transform: scale(.5);  opacity: .85; }
+  70%  { transform: scale(1.8); opacity: 0;   }
+  100% { transform: scale(1.8); opacity: 0;   }
+}
+/* Staggered so the field breathes instead of blinking in unison. */
+.nps-pulse.d1 { animation-delay: .45s; }
+.nps-pulse.d2 { animation-delay: .9s; }
+.nps-pulse.d3 { animation-delay: 1.35s; }
+
+.nps-icon[data-status="Down"] .nps-pulse { animation-duration: 1.5s; }
+.nps-icon[data-status="Down"] .nps-pulse::after {
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: 9999px;
+  border: 2px solid var(--c);
+  animation: nps-pulse 1.5s cubic-bezier(.22, 1, .36, 1) .75s infinite;
+}
+.nps-icon[data-status="Degraded"] .nps-pulse { animation-duration: 3.4s; }
+
+/* ── Clusters (merged overlapping nodes at low zoom) ────────────────── */
+.nps-cluster .nps-ring {
+  inset: 0;
+  background: var(--nps-ink, #0B0F14);
+  border: 2px solid var(--c);
+  box-shadow:
+    0 0 0 1px var(--nps-ink, #0B0F14),
+    0 0 18px 2px color-mix(in srgb, var(--c) 50%, transparent);
+}
+.nps-cluster .nps-count {
+  inset: 0;
+  display: grid; place-items: center;
+  font-size: 11px; font-weight: 800; line-height: 1;
+  color: var(--c);
+  font-variant-numeric: tabular-nums;
+}
+.nps-cluster .nps-dot { display: none; }
+
+/* ── Tooltip ────────────────────────────────────────────────────────── */
+.nps-tip {
+  background: rgba(17, 24, 35, .97) !important;
+  border: 1px solid var(--nps-line, #243244) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .6) !important;
+  color: var(--nps-fg, #E2E8F0) !important;
+  padding: 11px 14px !important;
+  font-family: inherit !important;
+  white-space: nowrap !important;
+  margin-top: -4px !important;
+}
+.nps-tip::before { display: none !important; }
+.nps-tip-name  { font-weight: 700; font-size: .875rem; letter-spacing: -.01em; }
+.nps-tip-city  { font-size: .7rem; color: var(--nps-faint, #9FB0C6); margin-top: 2px; text-transform: uppercase; letter-spacing: .07em; }
+.nps-tip-row   { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 9px; }
+.nps-tip-k     { font-size: .7rem; color: var(--nps-faint, #9FB0C6); text-transform: uppercase; letter-spacing: .06em; }
+.nps-tip-lat   { font-size: .875rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.nps-tip-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: .6875rem; font-weight: 700; padding: 3px 7px; border-radius: 6px;
+  background: color-mix(in srgb, var(--c) 16%, transparent);
+  color: var(--c);
+  border: 1px solid color-mix(in srgb, var(--c) 32%, transparent);
+}
+.nps-tip-badge i { width: 6px; height: 6px; border-radius: 9999px; background: var(--c); }
+
+/* ── Controls ──────────────────────────────────────────────────────────
+   !important is deliberate: leaflet.css is often loaded from a CDN and
+   may arrive AFTER this stylesheet, and .leaflet-bar rules tie with us
+   on specificity. Without it the light-theme chrome wins. */
+.nps .leaflet-control-attribution {
+  background: var(--nps-ink, #0B0F14) !important;
+  color: var(--nps-faint, #9FB0C6) !important;
+  font-size: 11px !important;
+  line-height: 1.5;
+  padding: 5px 8px !important;
+  border-radius: 6px 0 0 0;
+}
+.nps .leaflet-control-attribution a {
+  color: #C7D4E2 !important;
+  display: inline-block;
+  padding: 2px 0;
+}
+
+.nps .leaflet-control-zoom {
+  border: 0 !important;
+  box-shadow: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+}
+.nps .leaflet-control-zoom a,
+.nps .leaflet-bar a {
+  width: 36px !important;
+  height: 36px !important;
+  display: grid !important;
+  place-items: center !important;
+  background: rgba(17, 24, 35, .94) !important;
+  border: 1px solid var(--nps-line, #243244) !important;
+  border-radius: 9px !important;
+  color: #C7D4E2 !important;
+  font-size: 1.05rem !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+  backdrop-filter: blur(8px);
+  transition: background .18s ease, border-color .18s ease, color .18s ease;
+}
+.nps .leaflet-control-zoom a::before,
+.nps .leaflet-bar a::before { content: none !important; }
+.nps .leaflet-control-zoom a:hover,
+.nps .leaflet-bar a:hover {
+  background: #1B2634 !important;
+  border-color: #33455C !important;
+  color: #fff !important;
+}
+.nps .leaflet-control-zoom a:focus-visible {
+  outline: 2px solid #38BDF8 !important;
+  outline-offset: 2px !important;
+}
+.nps .leaflet-control-zoom a.leaflet-disabled {
+  opacity: .35 !important;
+  cursor: default !important;
+}
+
+.nps .leaflet-control-scale-line {
+  background: var(--nps-ink, #0B0F14) !important;
+  border-color: #33455C !important;
+  color: var(--nps-faint, #9FB0C6) !important;
+  font-size: 11px !important;
+  padding: 3px 7px !important;
+}
+
+/* ── Legend + hint ───────────────────────────────────────────────────── */
+.nps-legend {
+  position: absolute; z-index: 500; right: 12px; top: 12px;
+  background: rgba(11, 15, 20, .9);
+  border: 1px solid var(--nps-line, #243244);
+  border-radius: 10px; padding: 8px 10px;
+  backdrop-filter: blur(8px);
+  display: flex; flex-direction: column; gap: 5px;
+  pointer-events: none;
+}
+.nps-legend div { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--nps-faint, #9FB0C6); }
+.nps-legend i   { width: 8px; height: 8px; border-radius: 9999px; }
+
+.nps-hint {
+  position: absolute; z-index: 500; left: 12px; bottom: 34px;
+  background: rgba(11, 15, 20, .88);
+  border: 1px solid var(--nps-line, #243244);
+  color: var(--nps-faint, #9FB0C6);
+  font-size: 11px; padding: 5px 9px; border-radius: 8px;
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+  transition: opacity .4s ease;
+  font-family: inherit;
+}
+
+/* ── Stats strip ─────────────────────────────────────────────────────── */
+.nps-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  margin: 10px 12px 0;
+}
+.nps-stat {
+  background: var(--nps-soft, #111823);
+  border: 1px solid var(--nps-line, #243244);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.nps-stat-k { margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--nps-faint, #9FB0C6); }
+.nps-stat-v { margin: 4px 0 0; font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--nps-fg, #E2E8F0); }
+.nps-stat-v small { font-size: .875rem; font-weight: 500; color: var(--nps-faint, #9FB0C6); }
+
+/* ── Table ───────────────────────────────────────────────────────────── */
+.nps-table-wrap {
+  margin: 10px 12px 12px;
+  overflow-x: auto;
+  border: 1px solid var(--nps-line, #243244);
+  border-radius: 12px;
+}
+.nps-table { width: 100%; border-collapse: collapse; font-size: .875rem; text-align: left; }
+.nps-table th {
+  background: rgba(255, 255, 255, .03);
+  color: var(--nps-faint, #9FB0C6);
+  font-size: 11px; text-transform: uppercase; letter-spacing: .07em;
+  font-weight: 600; padding: 12px 16px; white-space: nowrap;
+}
+.nps-table td,
+.nps-table tbody th {
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255, 255, 255, .05);
+  font-weight: 600;
+  color: var(--nps-fg, #E2E8F0);
+}
+.nps-table tbody tr:hover { background: rgba(255, 255, 255, .03); }
+.nps-table .nps-coord {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .75rem; font-variant-numeric: tabular-nums;
+  color: var(--nps-faint, #9FB0C6); font-weight: 400; white-space: nowrap;
+}
+.nps-table .nps-num { text-align: right; font-variant-numeric: tabular-nums; color: #CBD5E1; font-weight: 400; }
+.nps-table .nps-stat-cell { text-align: right; }
+.nps-pill { display: inline-block; border-radius: 6px; border: 1px solid; padding: 2px 8px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.nps-dotmark { display: inline-block; width: 8px; height: 8px; border-radius: 9999px; margin-right: 8px; vertical-align: middle; }
+
+/* ── Live toggle ─────────────────────────────────────────────────────── */
+.nps-toggle {
+  display: inline-flex; align-items: center; gap: 12px;
+  cursor: pointer; user-select: none;
+  background: var(--nps-soft, #111823);
+  border: 1px solid var(--nps-line, #243244);
+  border-radius: 12px; padding: 10px 16px;
+  /* Inset from the host's own edges so it sits inside the border. */
+  margin: 12px 12px 10px;
+  font-family: inherit;
+}
+.nps-toggle-lbl { font-size: .875rem; font-weight: 600; color: var(--nps-fg, #E2E8F0); }
+.nps-toggle.is-off .nps-toggle-lbl { color: var(--nps-faint, #9FB0C6); }
+
+.nps-switch {
+  position: relative; width: 44px; height: 26px; flex: none;
+  border: 0; border-radius: 999px;
+  background: rgba(34, 197, 94, .8);
+  cursor: pointer; padding: 0;
+  transition: background .2s ease;
+}
+.nps-switch.is-off { background: rgba(100, 116, 139, .45); }
+.nps-switch:focus-visible { outline: 2px solid #38BDF8; outline-offset: 2px; }
+.nps-switch i {
+  position: absolute; top: 3px; left: 2px;
+  width: 20px; height: 20px; border-radius: 999px; background: #fff;
+  transition: transform .22s cubic-bezier(.22, 1, .36, 1);
+}
+.nps-switch.is-off i { transform: translateX(18px); }
+
+.nps-sr {
+  position: absolute; width: 1px; height: 1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* ── Reduced motion / high contrast ──────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .nps-anim .leaflet-container { animation: none; }
+  .nps-pulse { animation: none !important; opacity: .25; transform: scale(1.4); }
+  .nps-icon[data-status="Down"] .nps-pulse::after { animation: none !important; opacity: .25; transform: scale(1.4); }
+}
+@media (prefers-contrast: more) {
+  .nps-tip { border-width: 2px !important; }
+}
