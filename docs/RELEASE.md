@@ -66,7 +66,7 @@ of this scheme, not a bug to "fix" quietly.
 
 | aspect | value |
 | --- | --- |
-| triggers | `push` to `main`, and `workflow_dispatch` |
+| triggers | `workflow_dispatch` only (manual — a push to `main` never cuts a release) |
 | concurrency | group `release-please`, `cancel-in-progress: false` (never abort a half-finished release) |
 | permissions | `contents: write`, `pull-requests: write` |
 | action | `googleapis/release-please-action@v4` with `secrets.GITHUB_TOKEN`, `config-file: release-please-config.json`, `manifest-file: .release-please-manifest.json` |
@@ -83,7 +83,7 @@ Darwaza 2 (`e2e` + `zap`) before it can merge.
 
 ```
 commits merged to main (Conventional)
-        │  every push to main → release.yml
+        │  you run release.yml by hand (Actions → Release → Run workflow)
         ▼
 release-please computes the bump from commits since the last tag
         │

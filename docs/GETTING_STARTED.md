@@ -149,8 +149,9 @@ get your own copy.**
    }
    ```
 
-6. **Watch it go live**: the **Monitor** workflow runs on every push *and* on a
-   `*/5 * * * *` cron. Open **Actions → Monitor** and wait for green — your site
+6. **Watch it go live**: the **Monitor** workflow runs on a `*/5 * * * *` cron
+   (always) and immediately when you push a change under `config/`, `public/`,
+   `site/` or `tools/`. Open **Actions → Monitor** and wait for green — your site
    is then at:
 
    ```
@@ -223,8 +224,8 @@ Six workflows, all under [`.github/workflows/`](../.github/workflows/):
 | **Darwaza 2 · Heavy PR Gate** (`e2e-gate.yml`) | every PR | Playwright E2E (desktop + mobile) and the OWASP ZAP baseline DAST scan, evaluated by `tools/zap-policy.js`. |
 | **Sonar quality gate** (`sonar.yml`) | every PR + push | SonarCloud analysis + quality-gate notification. |
 | **Darwaza 3 · Nightly Deep Audit** (`security-scan.yml`) | nightly 02:00 + manual | CodeQL, Semgrep, `npm audit` — files an issue when it finds something. |
-| **Release** (`release.yml`) | push to `main` + manual | `release-please` opens/updates the release PR, and on merge tags + publishes the GitHub Release. |
-| **Monitor** (`monitor.yml`) | push + every 5 min | probes your monitors, pushes state, deploys `site/` to Pages. |
+| **Release** (`release.yml`) | manual only (`workflow_dispatch`) | `release-please` opens/updates the release PR; merging it tags + publishes the GitHub Release. Pushes never cut a release on their own. |
+| **Monitor** (`monitor.yml`) | every 5 min + push to `config/`/`public/`/`site/`/`tools/` | probes your monitors, pushes state, deploys `site/` to Pages. |
 
 **Branch protection on `main` (enabled on this repo):** pull requests only, no
 force pushes, no admin bypass, and these four checks must be green before merge
@@ -236,9 +237,10 @@ solo maintainer can merge their own PR once it's green.
 > current value, where artifacts/summaries live, how to monitor runs:
 > [`docs/DEVELOPER_GUIDE.md`](DEVELOPER_GUIDE.md).
 
-**Release flow:** merge a PR containing a `feat:`/`fix:` → the Release workflow
-opens `chore: release <version>` → merge that → tag + GitHub Release are
-published automatically.
+**Release flow (opt-in):** run **Actions → Release → Run workflow** —
+release-please opens `chore: release <version>` → merge that → tag + GitHub
+Release are published. Merging ordinary PRs to `main` never creates a version
+or tag by itself.
 
 ---
 
