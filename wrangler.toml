@@ -1,0 +1,26 @@
+name = "novapulse"
+main = "edge/worker.js"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Native Edge Cron: Triggers every 1 minute across 300+ edge locations worldwide.
+# Zero sleep, zero lag, 100% Free Tier (1,440 executions/day = 1.4% of 100k daily free quota).
+[triggers]
+crons = ["* * * * *"]
+
+# Cloudflare D1 Serverless SQLite Database Binding
+[[d1_databases]]
+binding = "DB"
+database_name = "novapulse-db"
+database_id = "novapulse-db-binding"
+
+# Optional Cloudflare KV Cache
+# [[kv_namespaces]]
+# binding = "KV"
+# id = "novapulse-kv-binding"
+
+# Environment Variables & Alert Secrets (Can also be set via `wrangler secret put`)
+[vars]
+LOG_LEVEL = "info"
+SLA_TARGET = "99.9"
+SSL_WARN_DAYS = "14"

@@ -29,11 +29,29 @@ export default [
 
 	// ---- Node (CommonJS) ------------------------------------------------
 	{
-		files: ['server.js', 'lib/**/*.js', 'test/**/*.js', 'tools/**/*.js', 'ecosystem.config.js'],
+		files: ['server.js', 'lib/**/*.js', 'api/**/*.js', 'test/**/*.js', 'tools/**/*.js', 'ecosystem.config.js'],
 		languageOptions: {
 			ecmaVersion: 2023,
 			sourceType: 'commonjs',
 			globals: { ...globals.node },
+		},
+	},
+
+	// ---- Edge Worker (Cloudflare Workers / ESM) -------------------------
+	{
+		files: ['edge/**/*.js'],
+		languageOptions: {
+			ecmaVersion: 2023,
+			sourceType: 'module',
+			globals: {
+				...globals.serviceworker,
+				fetch: 'readonly',
+				Response: 'readonly',
+				Request: 'readonly',
+				Headers: 'readonly',
+				URL: 'readonly',
+				AbortSignal: 'readonly',
+			},
 		},
 	},
 

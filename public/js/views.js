@@ -264,6 +264,18 @@ export function renderOverview({ stats, monitors, incidents, ctx, analytics }) {
 		]),
 	});
 
+	const mapContainer = h('div', { id: 'telemetry-map-container', class: 'telemetry-map' });
+	const mapCard = sectionCard({
+		title: 'Global Edge Probe Telemetry',
+		hint: 'Google Maps Platform · 8 global edge nodes · live status',
+		body: mapContainer,
+	});
+	import('./maps.js')
+		.then(({ initTelemetryMap }) => {
+			initTelemetryMap(mapContainer, { monitors });
+		})
+		.catch(() => {});
+
 	return h('div', {}, [
 		downMonitors.length
 			? h('div', { class: 'banner error', role: 'alert' }, [
@@ -281,6 +293,7 @@ export function renderOverview({ stats, monitors, incidents, ctx, analytics }) {
 			: null,
 		tiles,
 		chartCard,
+		mapCard,
 		h('div', { class: 'grid-2' }, [percentileCard, slaCard]),
 		h('div', { class: 'grid-2' }, [fleetCard, incidentCard]),
 	]);
