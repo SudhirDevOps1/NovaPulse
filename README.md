@@ -28,6 +28,7 @@
 🌐 **[Live Status Page](https://sudhirdevops1.github.io/NovaPulse/status.html)** • 
 📘 **[Getting Started](docs/GETTING_STARTED.md)** • 
 🛠️ **[Developer Guide](docs/DEVELOPER_GUIDE.md)** • 
+⏱️ **[24/7 Deployment Guide](docs/PERSISTENT_247_DEPLOYMENT.md)** • 
 🤝 **[Contributing](CONTRIBUTING.md)** • 
 📐 **[Architecture Guide](.ai/ARCHITECTURE.md)** • 
 📜 **[Golden Laws](.ai/RULES.md)** • 
@@ -46,6 +47,7 @@
 - [🏗️ Dual-Runtime Architecture](#️-dual-runtime-architecture)
 - [🚀 Key Features](#-key-features)
   - [📡 Multi-Protocol Probing Engine](#-multi-protocol-probing-engine)
+  - [📸 Visual Screenshots & Error Diagnostics](#-visual-screenshots--error-diagnostics-better-stack-grade)
   - [📊 2026 Telemetry & Analytics](#-2026-telemetry--analytics-server-computed)
   - [🔔 Omni-Channel Alert Engine](#-omni-channel-alert-engine-zero-dependencies)
   - [🎨 Cyber Telemetry Dashboard UI/UX](#-cyber-telemetry-dashboard-uiux)
@@ -54,6 +56,7 @@
   - [Option A: Serverless GitOps Mode (₹0 Forever)](#option-a-serverless-gitops-mode-0-forever-zero-card-)
   - [Option B: Local / Docker / VPS Mode](#option-b-local--docker--vps-mode)
   - [Option C: Free Cloud Deployment (Render, Fly.io, PM2)](#option-c-free-cloud-deployment-recipes)
+  - [⏱️ 24/7 Continuous Monitoring & Cron Lag Fix](docs/PERSISTENT_247_DEPLOYMENT.md)
 - [🛡️ The 3-Darwaza Safety Pipeline](#️-the-3-darwaza-safety-pipeline)
 - [⚙️ Configuration Reference](#️-configuration-reference)
 - [📐 Enforced System Limits](#-enforced-system-limits)
@@ -115,6 +118,12 @@ flowchart TD
 - 🔒 **SSL / TLS Certificate Expiry Watch**: Inspects live TLS sockets, reporting certificate issuer and days remaining. Triggers advance warning alerts before expiration without flipping monitor status to Down.
 - 🔌 **TCP Raw Socket Port Checking**: Connects directly to socket ports (`tcp://db.internal:5432`, `tcp://mail.domain.com:587`) for databases, Redis instances, and background daemons.
 - ⏱️ **Microsecond Timing Waterfall**: Exact breakdown per probe: `DNS` ➔ `Connect` ➔ `TLS Handshake` ➔ `TTFB` ➔ `Download`.
+
+### 📸 Visual Screenshots & Error Diagnostics (Better Stack Grade)
+- 🖼️ **Live Website Visual Snapshots**: Zero-API, high-reliability headless preview screenshots rendered automatically for every HTTP/HTTPS target.
+- 🗂️ **Interactive Incident Drawer**: Direct visual thumbnail preview inside monitor details, with instant "Open website ↗" deep-links.
+- 📝 **Raw Outage Response Body Snippets**: Captures the first 1,024 bytes of HTTP 4xx/5xx responses (e.g., `502 Bad Gateway`, `Database Connection Timed Out`, `Cloudflare DDoS screen`) so you understand what happened without searching server logs.
+- 🏷️ **Diagnostic Header Inspection**: Captures `Server`, `Content-Type`, and response headers during incidents for instant debugging.
 
 ### 📊 2026 Telemetry & Analytics (Server-Computed)
 - 📈 **Latency Percentiles**: Calculates `p50` (median), `p95` (peak), and `p99` percentiles across 24h, 7d, and 30d horizons.
