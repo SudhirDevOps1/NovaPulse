@@ -176,12 +176,12 @@ jobs:
           BASE_SHA="$(git rev-parse HEAD)"
           git config user.name "uptime-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          DEADLINE=$((SECONDS + 330)) # 5 h 30 m, inside the 355-min job timeout
+          DEADLINE=$((SECONDS + 19800)) # 5 h 30 m, inside the 355-min job timeout
           iteration=0
           while [ "$SECONDS" -lt "$DEADLINE" ]; do
             iteration=$((iteration + 1))
 
-            # Hand-off: any queued non-deploy Monitor run (a config push, the
+            # Hand-off: any waiting non-deploy Monitor run (a config push, the
             # next tick, a manual run) takes the `monitor` group over now
             # instead of waiting out this loop. Deploy-only runs are named
             # "… · deploy", queue on a different group, and are ignored here.
@@ -189,9 +189,14 @@ jobs:
             # /actions/runs has no workflow_id parameter (and the branch
             # parameter is `branch`, not `head_branch`), so those would be
             # silently dropped and unrelated queued runs would end the loop.
+            # NOTE: runs waiting on THIS concurrency group report status
+            # "pending", not "queued" (measured: run 37758521027 sat at
+            # pending behind 37758361932), so filter client-side instead of
+            # trusting status= in the query — an in-progress run (this one)
+            # matches neither value, so the loop never sees itself.
             queued="$(gh api \
-              "repos/${GITHUB_REPOSITORY}/actions/workflows/monitor.yml/runs?status=queued&branch=${GITHUB_REF_NAME}&per_page=20" \
-              --jq '[.workflow_runs[] | select(((.name // "") | endswith("deploy")) | not)] | length' \
+              "repos/${GITHUB_REPOSITORY}/actions/workflows/monitor.yml/runs?branch=${GITHUB_REF_NAME}&per_page=20" \
+              --jq '[.workflow_runs[] | select(.status == "queued" or .status == "pending") | select(((.name // "") | endswith("deploy")) | not)] | length' \
               2>/dev/null || true)"
             case "$queued" in
               '' | *[!0-9]*) queued=0 ;;
