@@ -1,45 +1,79 @@
 # ═══════════════════════════════════════════════════════════════════════════
-# RELEASE GATE — Google release-please v4 (automated semantic versioning)
-# ═══════════════════════════════════════════════════════════════════════════
-# release-please does not guess: it parses every Conventional Commit merged to
-# `main` since the last release tag and derives the next version from them
-# (`feat` → minor, `fix` → patch, `BREAKING CHANGE` → major).
-#
-# What it maintains on your behalf:
-#   * .release-please-manifest.json  — the "last released version" bookkeeping
-#   * release-please-config.json     — which package, which changelog path
-#   * .ai/CHANGELOG.md               — grouped, human-readable release log
-#   * package.json `version`         — bumped by the `json` extra-file
-#   * a git tag + GitHub Release     — created when the release PR merges
-#
-# This workflow only opens/updates the release PR — and only when you run it
-# yourself. It is intentionally decoupled from Darwazas 1 and 2: the PR it
-# opens is an ordinary PR, so it still has to clear both gates before it can
-# merge. Nothing is ever tagged without a green CI.
+# RELEASE GATE — Google release-please v4 & Zero-Defect Release Pipeline
 # ═══════════════════════════════════════════════════════════════════════════
 
 name: Release (release-please v4)
 
-# MANUAL ONLY — no release PR, version bump, tag or GitHub Release is ever
-# created by pushing/merging to `main`. Run this workflow by hand (Actions →
-# Release → Run workflow) whenever you actually want to cut a release.
 on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.ai/**'
+      - '.agent/**'
   workflow_dispatch:
+    inputs:
+      release_as:
+        description: 'Manual version override (e.g. 2026.2.0)'
+        required: false
+        type: string
 
 concurrency:
-  group: release-please
+  group: release
   cancel-in-progress: false
 
 permissions:
   contents: write
   pull-requests: write
+  issues: write
 
 jobs:
-  release-please:
-    name: Open or update the release PR
+  # ─────────────────────────────────────────────────────────────────────────
+  # STAGE 1: 5-STAGE ZERO-DEFECT QUALITY GATE
+  # ─────────────────────────────────────────────────────────────────────────
+  quality-gate:
+    name: 5-Stage Zero-Defect Quality Gate
     runs-on: ubuntu-latest
-    # `release: write` is required for creating tags/releases; the token must
-    # be the default one so the release PR triggers CI like any other PR.
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: 1. Install Dependencies (Frozen Lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: 2. Typecheck (TypeScript --noEmit)
+        run: pnpm run typecheck
+
+      - name: 3. Lint (ESLint 0-warning policy)
+        run: pnpm run lint
+
+      - name: 4. Automated Tests (Unit & Integration)
+        run: pnpm test
+
+      - name: 5. Production Build (Static Artifact Bundle)
+        run: pnpm run build
+
+      - name: Assert Build Artifact Output
+        run: pnpm run build:check
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # STAGE 2: GOOGLE RELEASE-PLEASE V4 ENGINE
+  # ─────────────────────────────────────────────────────────────────────────
+  release-please:
+    name: Google release-please v4
+    needs: quality-gate
+    runs-on: ubuntu-latest
     steps:
       - name: Run release-please
         id: release
@@ -48,40 +82,33 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+          release-as: ${{ github.event.inputs.release_as || '' }}
 
-      # surface the outcome in the run log — useful when a release PR is not
-      # appearing and the cause is an unparseable commit message.
-      - name: Summarise
+      - name: Summarise Release Status
         env:
           RELEASES: ${{ steps.release.outputs.releases_created }}
           PR: ${{ steps.release.outputs.pr }}
           TAGS: ${{ steps.release.outputs.tag_name }}
+          VERSION: ${{ steps.release.outputs.version }}
         run: |
           set -euo pipefail
           {
-            echo "## release-please"
+            echo "## 🚀 Release Please Execution Summary"
             echo ""
-            echo "- release created: \`${RELEASES:-false}\`"
-            echo "- release PR: ${PR:-none}"
-            echo "- tags: \`${TAGS:-none}\`"
+            echo "- **Release Created**: \`${RELEASES:-false}\`"
+            echo "- **Release Tag**: \`${TAGS:-none}\`"
+            echo "- **Target Version**: \`${VERSION:-none}\`"
+            echo "- **Release PR**: ${PR:-none}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # A silent red run teaches nothing; name the three causes we have
-      # actually seen so the next failure is a two-click fix.
-      - name: Diagnose failure
+      - name: Diagnose Failure
         if: failure()
         run: |
           {
-            echo "## release-please failed — likely causes"
+            echo "## ⚠️ release-please execution failed"
             echo ""
-            echo "1. \`release-please-config.json\` rejected by schema validation"
-            echo "   (the schema is \`additionalProperties: false\`: only the documented top-level keys are allowed)."
-            echo "2. **Settings → Actions → General → Workflow permissions** does not allow"
-            echo "   Actions to open pull requests — the action then gets a 403 on \`POST /pulls\`."
-            echo "   Enable *\"Allow GitHub Actions to create and approve pull requests\"*."
-            echo "3. A commit on \`main\` that is not a valid Conventional Commit"
-            echo "   (see \`commitlint.config.mjs\`); release-please skips it silently, which shows up"
-            echo "   as a missing release rather than an error."
-            echo ""
-            echo "Open the failing step log for the exact error text."
+            echo "1. Verify **Settings → Actions → General → Workflow permissions** has enabled:"
+            echo "   *\"Allow GitHub Actions to create and approve pull requests\"*."
+            echo "2. Verify all commits on \`main\` conform strictly to Conventional Commits."
+            echo "3. Verify \`release-please-config.json\` passes schema validation."
           } >> "$GITHUB_STEP_SUMMARY"
