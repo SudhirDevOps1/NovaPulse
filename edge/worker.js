@@ -103,6 +103,15 @@ async function sendAlert(env, text) {
 			}).catch(() => {})
 		);
 	}
+	if (env.SLACK_WEBHOOK_URL) {
+		promises.push(
+			fetch(env.SLACK_WEBHOOK_URL, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ text }),
+			}).catch(() => {})
+		);
+	}
 	if (env.NTFY_URL) {
 		promises.push(
 			fetch(env.NTFY_URL, {
@@ -113,6 +122,30 @@ async function sendAlert(env, text) {
 		);
 	}
 	await Promise.all(promises);
+}
+
+async function triggerGitHubIncidentIssue(env, monitor, failure) {
+	const token = env.GITHUB_TOKEN || env.GH_PAT;
+	const repo = env.GITHUB_REPOSITORY;
+	if (!token || !repo) return;
+	try {
+		await fetch(`https://api.github.com/repos/${repo}/issues`, {
+			method: 'POST',
+			headers: {
+				Authorization: `Bearer ${token}`,
+				Accept: 'application/vnd.github+json',
+				'Content-Type': 'application/json',
+				'User-Agent': 'novapulse/2026-edge-worker',
+			},
+			body: JSON.stringify({
+				title: `🚨 Incident: ${monitor.name} is DOWN`,
+				body: `### 🚨 Outage Detected: ${monitor.name}\n\n**Target**: \`${monitor.url}\`\n**Time**: \`${new Date().toISOString()}\`\n**Status**: \`${failure.status || 'DOWN'}\` · ${failure.error || 'Connection Failed'}\n\n*Automated by NovaPulse Edge Worker (Cloudflare Edge).*`,
+				labels: ['incident', 'downtime'],
+			}),
+		});
+	} catch {
+		// ignore
+	}
 }
 
 export default {
@@ -155,6 +188,7 @@ export default {
 							env,
 							`🔴 DOWN: ${monitor.name}\n${monitor.url}\n${result.error}${result.responseSnippet ? `\n\nPreview:\n${result.responseSnippet.slice(0, 200)}...` : ''}`
 						);
+						await triggerGitHubIncidentIssue(env, monitor, result);
 					} else if (newStatus === 'up' && previousStatus === 'down') {
 						await db.pushIncident({
 							monitorId: monitor.id,
