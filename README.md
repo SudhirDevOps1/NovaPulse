@@ -29,6 +29,7 @@
 📘 **[Getting Started](docs/GETTING_STARTED.md)** • 
 🛠️ **[Developer Guide](docs/DEVELOPER_GUIDE.md)** • 
 ⏱️ **[24/7 Deployment Guide](docs/PERSISTENT_247_DEPLOYMENT.md)** • 
+🩺 **[Monitoring Operations Guide](docs/MONITORING.md)** • 
 🤝 **[Contributing](CONTRIBUTING.md)** • 
 📐 **[Architecture Guide](.ai/ARCHITECTURE.md)** • 
 📜 **[Golden Laws](.ai/RULES.md)** • 
@@ -57,6 +58,7 @@
   - [Option B: Local / Docker / VPS Mode](#option-b-local--docker--vps-mode)
   - [Option C: Free Cloud Deployment (Render, Fly.io, PM2)](#option-c-free-cloud-deployment-recipes)
   - [⏱️ 24/7 Continuous Monitoring & Cron Lag Fix](docs/PERSISTENT_247_DEPLOYMENT.md)
+  - [🩺 Monitoring Operations Guide](docs/MONITORING.md)
 - [🛡️ The 3-Darwaza Safety Pipeline](#️-the-3-darwaza-safety-pipeline)
 - [⚙️ Configuration Reference](#️-configuration-reference)
 - [📐 Enforced System Limits](#-enforced-system-limits)

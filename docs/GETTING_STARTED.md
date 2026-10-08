@@ -225,7 +225,7 @@ Six workflows, all under [`.github/workflows/`](../.github/workflows/):
 | **Sonar quality gate** (`sonar.yml`) | every PR + push | SonarCloud analysis + quality-gate notification. |
 | **Darwaza 3 · Nightly Deep Audit** (`security-scan.yml`) | nightly 02:00 + manual | CodeQL, Semgrep, `npm audit` — files an issue when it finds something. |
 | **Release** (`release.yml`) | manual only (`workflow_dispatch`) | `release-please` opens/updates the release PR; merging it tags + publishes the GitHub Release. Pushes never cut a release on their own. |
-| **Monitor** (`monitor.yml`) | every 5 min + push to `config/`/`public/`/`site/`/`tools/` | probes your monitors, pushes state, deploys `site/` to Pages. |
+| **Monitor** (`monitor.yml`) | cron `*/5` (each delivered tick starts the 5-min **keeper loop**), `repository_dispatch` (external pinger), push to `config/`/`public/`/`site/`/`tools/`, manual `mode` | probes your monitors every ~5 min, pushes state, deploys `site/` to Pages. Full details: [Monitoring guide](MONITORING.md). |
 
 **Branch protection on `main` (enabled on this repo):** pull requests only, no
 force pushes, no admin bypass, and these four checks must be green before merge
