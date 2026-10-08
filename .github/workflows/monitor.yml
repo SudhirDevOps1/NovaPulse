@@ -1,28 +1,49 @@
 # Plan A — serverless uptime monitoring (₹0, no credit card, never sleeps).
 #
-#  schedule (every 5 min) → tools/gh-check.js probes every monitor in
-#                           config/monitors.json, records history, fires Telegram
-#                           alerts, then force-pushes state to the `state`
-#                           branch (a single commit — the repo never grows).
-#  any run                → tools/gh-build.js rebuilds site/ from the fresh
-#                           state and deploys it to GitHub Pages.
-#  every run (push, schedule, manual) → probe, save state, rebuild site/ and
-#                           deploy it to Pages. Probing used to be skipped on
-#                           `push` (it only re-deployed the previous state), so
-#                           a freshly edited config/monitors.json sat invisible
-#                           until the next scheduled run — and this repo's
-#                           schedule has been arriving hours late.
+# Cadence design — four triggers, three jobs:
 #
-# First-time setup: Settings → Pages → Source: "GitHub Actions", then add
-# TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID as repository secrets (optional).
+#   schedule "*/5"        GitHub delivers this repo's ticks 3.7–6.2 h apart
+#                         (measured — docs/MONITORING.md), so a tick no longer
+#                         buys exactly one probe: it starts `keeper`, which
+#                         probes every 5 minutes for up to 5 h 30 m and stops
+#                         early the moment another Monitor run queues up.
+#   repository_dispatch   external pinger (cron-job.org etc.) → instant probe.
+#                         Types: probe · check · monitor.
+#   workflow_dispatch     manual "Run workflow" — inputs.mode =
+#                           auto   (default) one probe pass + deploy
+#                           keeper run the 5-min loop by hand
+#                           deploy rebuild + publish site/ only (the keeper
+#                                    asks for this every iteration so the
+#                                    dashboard never shows stale data)
+#   push (site paths)     config/public/site/tools/workflow changed → probe + deploy
+#
+# Jobs:
+#   probe   one pass: check monitors, force-push `state`        (group: monitor)
+#   keeper  5-min loop: check, save, hand off, request a deploy (group: monitor)
+#   deploy  build site/ + publish to Pages                      (group: pages-deploy)
+#
+# Two job-level concurrency groups replace the old workflow-level one: probes can
+# never race each other's force-push to `state`, while deploys queue separately —
+# a Pages publish never blocks the next probe, and vice versa. The keeper also
+# checks for queued runs at the top of every iteration and hands the `monitor`
+# group over instead of making a config push wait out the loop.
+#
+# First-time setup: Settings → Pages → Source: "GitHub Actions", then add alert
+# secrets (TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID, DISCORD_WEBHOOK_URL,
+# SLACK_WEBHOOK_URL, NTFY_URL, WEBHOOK_URL) — see docs/MONITORING.md.
 
 name: Monitor
+
+# Deploy-only runs are named "Monitor · deploy" so the keeper's hand-off query
+# can tell them apart (they queue on a different group and must never block
+# the loop).
+run-name: ${{ inputs.mode == 'deploy' && 'Monitor · deploy' || 'Monitor' }}
 
 on:
   push:
     branches: [main, master]
-    # Only paths that actually reach the deployed site. Doc/test/server pushes
-    # do NOT trigger a Pages redeploy (the 5-min schedule still refreshes data).
+    # Only paths that actually reach the deployed site. Doc/test pushes do NOT
+    # trigger a Pages redeploy (the schedule + keeper still refresh the data).
     paths:
       - "config/**"
       - "public/**"
@@ -32,25 +53,28 @@ on:
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "auto = probe + deploy · keeper = 5-min probe loop · deploy = rebuild the site only"
+        type: choice
+        options: [auto, keeper, deploy]
+        default: auto
   repository_dispatch:
     types: [probe, check, monitor]
 
 permissions:
-  contents: write
-  pages: write
-  id-token: write
-
-# Queue runs instead of cancelling — a check run must never be killed midway.
-concurrency:
-  group: monitor
-  cancel-in-progress: false
+  contents: write # force-push the `state` branch
+  pages: write # publish the status site
+  id-token: write # Pages OIDC deployment
+  actions: write # keeper: read queued runs + dispatch the deploy-only runs
 
 jobs:
-  monitor:
+  probe:
+    if: github.event_name != 'schedule' && inputs.mode != 'keeper' && inputs.mode != 'deploy'
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: monitor
+      cancel-in-progress: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -99,6 +123,148 @@ jobs:
             git commit -m "chore(state): $(date -u +%Y-%m-%dT%H:%M:%SZ)"
             # Force-push keeps the branch at one commit — zero repo growth.
             git push --force origin HEAD:state
+          fi
+
+  # Started by every delivered schedule tick (and by `inputs.mode = keeper`).
+  # Each iteration = one full probe pass + a state push + a deploy request,
+  # then a sleep that pads the iteration out to ~5 minutes — so intervalSec
+  # really means what the dashboard claims even between GitHub's late ticks.
+  keeper:
+    if: github.event_name == 'schedule' || inputs.mode == 'keeper'
+    runs-on: ubuntu-latest
+    timeout-minutes: 355 # job cap is 360; the loop stops itself after 5 h 30 m
+    concurrency:
+      group: monitor
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Restore previous state
+        shell: bash
+        run: |
+          if git fetch origin state 2>/dev/null; then
+            git checkout FETCH_HEAD -- gh-state 2>/dev/null \
+              || echo "No gh-state on the state branch yet — starting fresh."
+          else
+            echo "No state branch yet — starting fresh."
+          fi
+
+      - name: Probe every 5 minutes (keeper loop)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          NTFY_URL: ${{ secrets.NTFY_URL }}
+          NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
+          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+          LOG_LEVEL: info
+        run: |
+          set -euo pipefail
+          BASE_SHA="$(git rev-parse HEAD)"
+          git config user.name "uptime-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          DEADLINE=$((SECONDS + 330)) # 5 h 30 m, inside the 355-min job timeout
+          iteration=0
+          while [ "$SECONDS" -lt "$DEADLINE" ]; do
+            iteration=$((iteration + 1))
+
+            # Hand-off: any queued non-deploy Monitor run (a config push, the
+            # next tick, a manual run) takes the `monitor` group over now
+            # instead of waiting out this loop. Deploy-only runs are named
+            # "… · deploy", queue on a different group, and are ignored here.
+            # NOTE: this must use the *workflows* runs endpoint — plain
+            # /actions/runs has no workflow_id parameter (and the branch
+            # parameter is `branch`, not `head_branch`), so those would be
+            # silently dropped and unrelated queued runs would end the loop.
+            queued="$(gh api \
+              "repos/${GITHUB_REPOSITORY}/actions/workflows/monitor.yml/runs?status=queued&branch=${GITHUB_REF_NAME}&per_page=20" \
+              --jq '[.workflow_runs[] | select(((.name // "") | endswith("deploy")) | not)] | length' \
+              2>/dev/null || true)"
+            case "$queued" in
+              '' | *[!0-9]*) queued=0 ;;
+            esac
+            if [ "$queued" -gt 0 ]; then
+              echo "Another Monitor run is queued — handing over (iteration ${iteration})."
+              exit 0
+            fi
+
+            started=$SECONDS
+            echo "::group::keeper iteration ${iteration} ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
+            node tools/gh-check.js
+            git add -f -A gh-state
+            if git diff --cached --quiet; then
+              echo "State unchanged (no monitor was due yet)."
+            else
+              # Keep the `state` branch at BASE+1 even inside a long loop: each
+              # iteration replaces the previous snapshot instead of chaining
+              # commits. (The reset is a no-op on iteration 1.)
+              git reset --soft "$BASE_SHA"
+              git commit -m "chore(state): $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+              git push --force origin HEAD:state
+            fi
+            if [ "$GITHUB_REF_NAME" = "$DEFAULT_BRANCH" ]; then
+              # Fresh dashboard data every iteration: deploy-only runs rebuild
+              # site/ from the state branch this loop just pushed.
+              printf '%s' "{\"ref\":\"${GITHUB_REF_NAME}\",\"inputs\":{\"mode\":\"deploy\"}}" \
+                | gh api -X POST "repos/${GITHUB_REPOSITORY}/actions/workflows/monitor.yml/dispatches" --input -
+            else
+              echo "Skipping the deploy request: only ${DEFAULT_BRANCH} may deploy (github-pages environment policy)."
+            fi
+            echo "::endgroup::"
+
+            pause=$((300 - (SECONDS - started)))
+            if [ "$pause" -lt 5 ]; then
+              pause=5
+            fi
+            sleep "$pause"
+          done
+          echo "Keeper budget (5 h 30 m) spent — the next schedule tick takes over."
+
+  # Builds site/ from the freshest `state` branch and publishes it. Runs after a
+  # successful probe, or stand-alone for `inputs.mode = deploy` (the keeper's
+  # per-iteration refresh — those runs are the ones named "Monitor · deploy").
+  deploy:
+    needs: probe
+    if: ${{ !cancelled() && (needs.probe.result == 'success' || inputs.mode == 'deploy') }}
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages-deploy
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Restore previous state
+        shell: bash
+        run: |
+          if git fetch origin state 2>/dev/null; then
+            git checkout FETCH_HEAD -- gh-state 2>/dev/null \
+              || echo "No gh-state on the state branch yet — starting fresh."
+          else
+            echo "No state branch yet — starting fresh."
           fi
 
       - name: Build static site

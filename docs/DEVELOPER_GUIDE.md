@@ -51,7 +51,7 @@ Everything lives in the **Actions** tab. Each run = a workflow; inside it are
 | 3 | **Sonar quality gate** (`sonar.yml`) | every PR, every push to `main`, manual | `SonarQube scan + quality gate notification` | ✅ |
 | 4 | **Darwaza 3 · Nightly Deep Audit** (`security-scan.yml`) | nightly `30 20 * * *` UTC (= **02:00 IST**), manual | `codeql` · `Semgrep SAST` · `NPM critical/high CVE audit` · `File issue on failure` | ❌ nightly only |
 | 5 | **Release** (`release.yml`) | **manual only** (`workflow_dispatch`) | `release-please` | ❌ |
-| 6 | **Monitor** (`monitor.yml`) | push to `main`/`master` (**site paths only**), cron `*/5 * * * *`, manual | `monitor` | ❌ |
+| 6 | **Monitor** (`monitor.yml`) | push to `main`/`master` (**site paths only**), cron `*/5 * * * *` (each tick starts the **keeper** loop), `repository_dispatch` (`probe`/`check`/`monitor`), manual `mode` (auto/keeper/deploy) | `probe` · `keeper` · `deploy` | ❌ |
 
 ### Darwaza 1 — the fast gate (`ci.yml`)
 
@@ -112,22 +112,33 @@ merge that green PR.
 
 ### Monitor (`monitor.yml`) — your ₹0 SaaS replacement
 
-1. restore previous state from the **`state` branch**,
-2. `tools/gh-check.js` probes every monitor in `config/monitors.json`,
-   records history and fires Telegram/Discord/… alerts,
-3. save state back to `state` (one force-pushed commit — the repo never grows),
-4. `tools/gh-build.js` rebuilds `site/` from that state,
-5. deploy `site/` to **GitHub Pages**.
+Three jobs, two concurrency groups:
+
+1. **`probe`** — one pass: restore state from the **`state` branch**, run
+   `tools/gh-check.js` over every due monitor in `config/monitors.json`
+   (records history, fires Telegram/Discord/Slack/… alerts), force-push the
+   state back (one commit — the repo never grows).
+2. **`deploy`** — `tools/gh-build.js` rebuilds `site/` from that state and
+   publishes it to **GitHub Pages**. It queues on its own group
+   (`pages-deploy`), so a publish never delays the next probe and vice versa.
+3. **`keeper`** — the cadence workhorse (started by every delivered schedule
+   tick, or `mode: keeper`): a loop inside one run — probe → save state →
+   request a `deploy` run → sleep out the rest of ~5 minutes — repeating for up
+   to **5 h 30 m**, and handing the `monitor` group over early as soon as any
+   other Monitor run queues behind it (a config push never waits out the loop).
 
 A summary line like *"State unchanged"* means probes ran and nothing flipped —
 that is the healthy case.
 
-**When it runs:** the `*/5` cron (the real heartbeat), a push that touches
+**When it runs:** the `*/5` cron (each delivered tick starts a `keeper`),
+`repository_dispatch` of type `probe`/`check`/`monitor` (external pinger — see
+[24/7 Guide · Option 4](PERSISTENT_247_DEPLOYMENT.md)), a push that touches
 `config/`, `public/`, `site/`, `tools/` or the workflow file itself, or **Run
-workflow** by hand. Pushes that only change docs, tests, `lib/` or `server.js`
-do **not** redeploy Pages.
+workflow** by hand (`mode`: `auto` = probe + deploy, `keeper` = the loop,
+`deploy` = publish only). Pushes that only change docs, tests, `lib/` or
+`server.js` do **not** redeploy Pages.
 
-**Every run probes first.** `Check monitors` and `Save state` no longer carry
+**Push runs probe too.** `Check monitors` and `Save state` no longer carry
 `if: github.event_name != 'push'`, so an edited `config/monitors.json` lands on
 the site in the *same* run instead of waiting for the next scheduled probe.
 Measured 2026-10-08: the push run right after PR #5 merged logged
@@ -135,12 +146,14 @@ Measured 2026-10-08: the push run right after PR #5 merged logged
 `monitors: 0` three hours later.
 
 > **Measured caveat (2026-10-08):** GitHub's `schedule` delivery here is far
-> slower than the cron asks for — 3 Monitor runs in a 19-hour window (17:27,
-> 22:09, 01:53 UTC) instead of ~228, and Darwaza 3's `30 20 * * *` arrived at
-> 00:20 UTC (+3 h 50 m). Treat the cron as best-effort: config edits deploy via
-> the path-filtered push trigger, and **Actions → Monitor → Run workflow**
-> probes on demand. Want a guaranteed 5-minute rhythm? Point an external cron
-> (cron-job.org, UptimeRobot, …) at `workflow_dispatch`.
+> slower than the cron asks for — 4 ticks in a 24-hour window (17:27, 22:09,
+> 01:53, 08:02 UTC; gaps 3 h 44 m – 6 h 09 m) instead of ~288, and Darwaza 3's
+> `30 20 * * *` arrived at 00:20 UTC (+3 h 50 m). The keeper loop absorbs that:
+> between (and for hours after) any delivered tick it probes every ~5 min.
+> For an exact 24/7 rhythm that ignores GitHub's queue entirely, point an
+> external cron (cron-job.org) at `repository_dispatch`; for sub-minute
+> intervals run Mode B — see `docs/PERSISTENT_247_DEPLOYMENT.md`. Full
+> cadence + competitor analysis: **[`docs/MONITORING.md`](MONITORING.md)**.
 
 ---
 

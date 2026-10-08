@@ -455,7 +455,7 @@ function render() {
 			h('div', { class: 'banner info' }, [
 				iconEl('clock'),
 				h('span', {
-					text: 'Read-only view — monitors are defined in config/monitors.json (edit it on GitHub and commit). Checks run every few minutes; alerts arrive on Telegram.',
+					text: 'Read-only view — monitors are defined in config/monitors.json (edit it on GitHub and commit). Checks repeat every few minutes; alerts arrive on Telegram, Discord, Slack, ntfy or a webhook once those secrets are configured.',
 				}),
 			]),
 		);
