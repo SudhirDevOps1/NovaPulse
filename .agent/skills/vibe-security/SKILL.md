@@ -152,7 +152,8 @@ npx semgrep scan --config p/security-audit --config p/javascript --config p/node
 pnpm audit             # Darwaza 3 fails on any high/critical advisory
 ```
 
-`semgrep-report.json` and `npm-audit-report.json` are gitignored — never commit them.
+`semgrep.sarif` (what the nightly writes), `semgrep-report.json` (a manual
+`--json` run) and `npm-audit-report.json` are gitignored — never commit them.
 
 ---
 
