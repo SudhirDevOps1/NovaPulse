@@ -13,6 +13,17 @@
 <!-- release-please-block -->
 <!-- release-please-unblock -->
 
+## [2026.1.2](https://github.com/SudhirDevOps1/NovaPulse/compare/v2026.1.1...v2026.1.2) (2026-10-07)
+
+
+### Bug Fixes
+
+* **ci:** close the unterminated here-string quote in the commitlint step ([82ee10b](https://github.com/SudhirDevOps1/NovaPulse/commit/82ee10be5a919293eea58aa66f9123a8a6c23b2c))
+* **ci:** fetch only missing SHAs so the commitlint job can actually lint ([bcf6e74](https://github.com/SudhirDevOps1/NovaPulse/commit/bcf6e747cc76b283313f1062a2c2956f03bc330a))
+* **security:** send COEP/CORP and move the ZAP action off the retired artifact service ([8a26a6c](https://github.com/SudhirDevOps1/NovaPulse/commit/8a26a6c65fe73103431b15dfb5b581133150958e))
+* **store:** normalise at boot, quarantine corrupt data, keep imported methods ([c0f0e82](https://github.com/SudhirDevOps1/NovaPulse/commit/c0f0e828077c5f172997b07afbc0a6f8965622d3))
+* **store:** normalise at boot, quarantine corrupt data, keep imported methods ([ce57e94](https://github.com/SudhirDevOps1/NovaPulse/commit/ce57e9461547e5283f30b6c11e39a8e7f35a5124))
+
 ## [2026.1.1](https://github.com/SudhirDevOps1/NovaPulse/compare/v2026.1.0...v2026.1.1) (2026-10-07)
 
 
