@@ -1,4 +1,21 @@
 {
 	"comment": "NovaPulse 2026 GitOps Configuration: Add your monitors below or edit via GitHub web/mobile app.",
-	"monitors": []
+	"monitors": [
+		{
+			"name": "My site",
+			"url": "https://sudhirdevops1.github.io/NovaPulse/",
+			"type": "http",
+			"method": "GET",
+			"intervalSec": 300,
+			"timeoutMs": 10000,
+			"expectedStatus": "200-299",
+			"failuresBeforeDown": 2,
+			"tags": ["prod"]
+		},
+		{
+			"name": "Google DNS",
+			"url": "tcp://8.8.8.8:53",
+			"intervalSec": 600
+		}
+	]
 }
