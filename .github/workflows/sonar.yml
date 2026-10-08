@@ -17,6 +17,8 @@
 #     a FAILED gate files/updates one `sonar-quality-gate` issue and comments
 #     on the PR that caused it;
 #   * gate is passed → a previously opened issue is closed;
+#   * gate failed → the run itself fails (the issue/PR comment alone was an
+#     annotation nobody's dashboard ever turned red for);
 #   * secrets are absent → the workflow states so loudly in the job summary.
 #     It never reports a fake pass, and it never blocks Darwaza 1/2 (those
 #     are the merge gates — L-34 keeps them independent of tooling setup).
@@ -216,3 +218,25 @@ jobs:
               gh issue close "$n" --repo "$REPO" \
                 --comment "Sonar quality gate is green again: $RUN_URL"
             done
+
+      # `::error::` above only writes an annotation — the step still exits 0,
+      # so a FAILED quality gate produced a green run and nothing ever noticed
+      # unless someone opened the Actions page. This makes the workflow itself
+      # red. It is deliberately *not* added to Darwaza 1's `gate` job, so a
+      # missing/failed Sonar setup still cannot block a merge (L-34).
+      - name: Fail the run when the quality gate failed
+        if: steps.config.outputs.configured == 'true' && steps.gate.outputs.outcome != 'OK' && steps.gate.outputs.outcome != 'UNKNOWN'
+        env:
+          OUTCOME: ${{ steps.gate.outputs.outcome }}
+          DETAILS: ${{ steps.gate.outputs.details }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## Sonar quality gate failed: \`$OUTCOME\`"
+            echo ""
+            echo "| metric | actual | status |"
+            echo "| --- | --- | --- |"
+            echo "$DETAILS"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::error::Sonar quality gate is $OUTCOME — failing this run"
+          exit 1

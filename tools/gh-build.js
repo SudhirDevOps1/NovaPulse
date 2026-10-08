@@ -101,10 +101,10 @@ const csp = [
 	"base-uri 'none'",
 	"form-action 'self'",
 	mapsApiKey ? 'upgrade-insecure-requests' : null,
-	`img-src 'self' data:${mapsApiKey ? ' https://maps.gstatic.com https://*.googleapis.com' : ''}`,
+	`img-src 'self' data: https://*.basemaps.cartocdn.com https://*.openstreetmap.org${mapsApiKey ? ' https://maps.gstatic.com https://*.googleapis.com' : ''}`,
 	"style-src 'self'",
 	`script-src 'self'${mapsApiKey ? ' https://maps.googleapis.com https://maps.gstatic.com' : ''}`,
-	`connect-src 'self'${mapsApiKey ? ' https://maps.googleapis.com https://maps.gstatic.com https://maps.google.com' : ''}`,
+	`connect-src 'self' https://*.basemaps.cartocdn.com https://*.openstreetmap.org${mapsApiKey ? ' https://maps.googleapis.com https://maps.gstatic.com https://maps.google.com' : ''}`,
 	"font-src 'self'",
 	"object-src 'none'",
 ]

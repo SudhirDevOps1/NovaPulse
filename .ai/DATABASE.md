@@ -186,6 +186,8 @@ runtime by `lib/checker.js`. Validation limits are enforced by
 | `status` | `'unknown' \| 'up' \| 'degraded' \| 'down'` | `'unknown'` | derived from the last probe | `checker.record` |
 | `consecutiveFailures` | integer ≥ 0 | `0` | grace counter for `failuresBeforeDown` | `checker.record` |
 | `wasDown` | boolean | `false` | set on outage, cleared on recovery | `checker.record` |
+| `lastDownAlertAt?` | epoch ms \| null | `null` | last time a DOWN notification left the process; damps to one per `ALERT_COOLDOWN_MS` (default 5 min) | `checker.record` |
+| `lastUpAlertAt?` | epoch ms \| null | `null` | same, for the recovery notification | `checker.record` |
 | `tags` | string[] | `[]` | ≤ **10** items, each ≤ **24** chars, trimmed, de-duplicated | validate |
 | `history` | entry[] | `[]` | ring buffer **500**; entry = `{at, ok, status, ms, degraded?}` | `store.addHistory` |
 | `rollups` | rollup[] | `[]` | **720** hourly buckets, see §6 | `store.addRollup` |
@@ -201,6 +203,15 @@ runtime by `lib/checker.js`. Validation limits are enforced by
 | `ssl?` | object | absent | `{validTo, daysLeft, issuer}` refreshed per TLS probe | `checker.record` |
 | `sslWarnedAt?` | epoch ms \| null | absent | rate-limits the expiry alert to once per 24 h | `checker.record` |
 | `uptime24h` | number \| null | — | **computed on read**, never stored (`publicMonitor`) | — |
+| `hasHeaders` | boolean | — | **computed on read**, never stored: whether saved headers exist, so the edit form can offer removal without ever echoing a value | `publicMonitor` |
+
+**Read-path redaction.** `publicMonitor()` strips `rollups`, `headers` and
+`lastCheck.responseSnippet` / `lastCheck.responseHeaders`; `GET /api/incidents`
+strips `responseSnippet` / `responseHeaders`. Custom headers routinely hold
+`Authorization: …` and a snippet is the exfiltration half of an SSRF — neither
+is returned over the wire. `PATCH /api/monitors/:id` keeps the stored headers
+when `headers` is **absent**, replaces it when it is an object, and clears it on
+`headers: null`. `GET /api/export` still returns everything (it is a backup).
 
 **State-level records**
 

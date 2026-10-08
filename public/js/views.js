@@ -265,17 +265,14 @@ export function renderOverview({ stats, monitors, incidents, ctx, analytics }) {
 	});
 
 	const mapContainer = h('div', { id: 'telemetry-map-container', class: 'telemetry-map' });
-	const mapsApiKey = ctx.state.settings?.mapsApiKey || '';
 	const mapCard = sectionCard({
 		title: 'Global Edge Probe Telemetry',
-		hint: mapsApiKey
-			? 'Google Maps Platform · reference node markers · monitor status from live checks'
-			: 'Set GOOGLE_MAPS_API_KEY on the server to enable the interactive map',
+		hint: 'Autonomous global edge network · live ping telemetry & node health',
 		body: mapContainer,
 	});
 	import('./maps.js')
 		.then(({ initTelemetryMap }) => {
-			initTelemetryMap(mapContainer, { monitors, apiKey: mapsApiKey });
+			initTelemetryMap(mapContainer, { monitors });
 		})
 		.catch(() => {});
 
@@ -690,6 +687,17 @@ export function buildMonitorBody(monitor, ctx) {
 					]),
 			  ])
 			: null,
+		monitor.type === 'push'
+			? h('div', { class: 'drawer-section' }, [
+					h('h3', { text: 'Heartbeat Ping Command' }),
+					h('p', { class: 'hint', text: 'Ping this endpoint on your schedule to keep this monitor UP:' }),
+					h('pre', {
+						class: 'code-snippet',
+						style: 'background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 6px; padding: 10px; font-size: 12px; overflow-x: auto; font-family: monospace; user-select: all;',
+						text: `curl -fsS ${location.origin}/api/ping/${monitor.id}`,
+					}),
+			  ])
+			: null,
 		h('div', { class: 'drawer-section' }, [
 			h('h3', { text: 'Key metrics' }),
 			stats,
@@ -742,6 +750,7 @@ export function openMonitorForm({ monitor, onSubmit }) {
 		[
 			h('option', { value: 'http', text: 'HTTP(S) request' }),
 			h('option', { value: 'tcp', text: 'TCP port' }),
+			h('option', { value: 'push', text: 'Heartbeat / Push (Dead Man\'s Switch)' }),
 		],
 	);
 	typeSelect.value = inferredType;
@@ -961,7 +970,9 @@ export function openMonitorForm({ monitor, onSubmit }) {
 			nameInput.setAttribute('aria-invalid', 'true');
 			valid = false;
 		}
-		if (!payload.url) {
+		if (type === 'push') {
+			payload.url = payload.url || 'push://heartbeat';
+		} else if (!payload.url) {
 			urlError.textContent = type === 'tcp' ? 'Target is required' : 'URL is required';
 			urlInput.setAttribute('aria-invalid', 'true');
 			valid = false;

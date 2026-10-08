@@ -24,11 +24,15 @@
     <meta name="color-scheme" content="dark light" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' https://maps.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://maps.gstatic.com https://*.googleapis.com https://s0.wp.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://maps.googleapis.com;"
+      content="default-src 'self'; script-src 'self' https://maps.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://maps.gstatic.com https://*.googleapis.com https://s0.wp.com https://*.basemaps.cartocdn.com https://*.openstreetmap.org https://*.tile.openstreetmap.org https://*.tile.openstreetmap.de https://tile.openstreetmap.de; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://maps.googleapis.com https://*.basemaps.cartocdn.com https://*.openstreetmap.org https://*.tile.openstreetmap.org https://*.tile.openstreetmap.de https://tile.openstreetmap.de;"
     />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+    <link rel="stylesheet" href="vendor/novapulse-edge-map/novapulse.css" />
     <link rel="stylesheet" href="style.css" />
+    <script src="vendor/leaflet/leaflet.js"></script>
+    <script src="vendor/novapulse-edge-map/novapulse.js"></script>
   </head>
   <body>
     <a class="skip-link" href="#view">Skip to content</a>

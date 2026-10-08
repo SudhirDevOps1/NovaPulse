@@ -115,6 +115,8 @@ shipped.
 | `TELEGRAM_*`, `DISCORD_WEBHOOK_URL`, `NTFY_*`, `WEBHOOK_URL`, `WEBHOOK_SECRET` | set via environment / secret manager | never in code, commits or images; `WEBHOOK_SECRET` is sent as the `x-novapulse-secret` header (`lib/notify.js`) |
 | `SSL_WARN_DAYS` / `SLA_TARGET` / `ALERT_ON_DEGRADED` | `14` / `99.9` / unset | alerting policy, not security |
 | `ALLOW_FRAMING` | **never set** | relaxes `frame-ancestors` — local QA only |
+| `ALLOW_PRIVATE_TARGETS` | **never set** | disables the SSRF guard (`lib/probe.js`) so probes may hit loopback/RFC-1918/link-local/metadata addresses — local QA only (see §5) |
+| `ALERT_COOLDOWN_MS` | `300000` | per-monitor alert cooldown; `0` disables it, which invites alert floods |
 
 Deployment checklist:
 
@@ -138,6 +140,7 @@ Deployment checklist:
 | Inline script/CSP | strict, no `unsafe-inline` | never relax the CSP for a demo; there is no third-party script or font exception (L-23). |
 | Secrets | environment only | zero inline fallbacks is a permanent invariant (L-10) — a `|| "fallback"` credential is a reportable defect. |
 | Retention | bounded (500 raw points, 720 hourly rollups, 500 incidents) | raising a cap needs an ADR (L-24). |
+| Probe targets | private/loopback/link-local/metadata addresses refused | `resolveTarget()` pre-resolves the hostname and pins every connection (including redirects) to a vetted public address; only `http`/`https` are followed. `ALLOW_PRIVATE_TARGETS=1` opts out for local QA — never in production. |
 
 ---
 
