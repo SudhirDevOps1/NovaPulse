@@ -122,10 +122,25 @@ merge that green PR.
 A summary line like *"State unchanged"* means probes ran and nothing flipped —
 that is the healthy case.
 
-**When it runs:** the `*/5` cron (the real heartbeat — it always deploys the
-fresh data), a push that touches `config/`, `public/`, `site/`, `tools/` or the
-workflow file itself, or **Run workflow** by hand. Pushes that only change docs,
-tests, `lib/` or `server.js` do **not** redeploy Pages.
+**When it runs:** the `*/5` cron (the real heartbeat), a push that touches
+`config/`, `public/`, `site/`, `tools/` or the workflow file itself, or **Run
+workflow** by hand. Pushes that only change docs, tests, `lib/` or `server.js`
+do **not** redeploy Pages.
+
+**Every run probes first.** `Check monitors` and `Save state` no longer carry
+`if: github.event_name != 'push'`, so an edited `config/monitors.json` lands on
+the site in the *same* run instead of waiting for the next scheduled probe.
+Measured 2026-10-08: the push run right after PR #5 merged logged
+`Check monitors = skipped`, and the deployed site still reported
+`monitors: 0` three hours later.
+
+> **Measured caveat (2026-10-08):** GitHub's `schedule` delivery here is far
+> slower than the cron asks for — 3 Monitor runs in a 19-hour window (17:27,
+> 22:09, 01:53 UTC) instead of ~228, and Darwaza 3's `30 20 * * *` arrived at
+> 00:20 UTC (+3 h 50 m). Treat the cron as best-effort: config edits deploy via
+> the path-filtered push trigger, and **Actions → Monitor → Run workflow**
+> probes on demand. Want a guaranteed 5-minute rhythm? Point an external cron
+> (cron-job.org, UptimeRobot, …) at `workflow_dispatch`.
 
 ---
 
