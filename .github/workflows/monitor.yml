@@ -185,11 +185,18 @@ jobs:
             # next tick, a manual run) takes the `monitor` group over now
             # instead of waiting out this loop. Deploy-only runs are named
             # "… · deploy", queue on a different group, and are ignored here.
+            # NOTE: this must use the *workflows* runs endpoint — plain
+            # /actions/runs has no workflow_id parameter (and the branch
+            # parameter is `branch`, not `head_branch`), so those would be
+            # silently dropped and unrelated queued runs would end the loop.
             queued="$(gh api \
-              "repos/${GITHUB_REPOSITORY}/actions/runs?workflow_id=monitor.yml&status=queued&head_branch=${GITHUB_REF_NAME}&per_page=20" \
+              "repos/${GITHUB_REPOSITORY}/actions/workflows/monitor.yml/runs?status=queued&branch=${GITHUB_REF_NAME}&per_page=20" \
               --jq '[.workflow_runs[] | select(((.name // "") | endswith("deploy")) | not)] | length' \
-              2>/dev/null || echo 0)"
-            if [ "${queued:-0}" -gt 0 ] 2>/dev/null; then
+              2>/dev/null || true)"
+            case "$queued" in
+              '' | *[!0-9]*) queued=0 ;;
+            esac
+            if [ "$queued" -gt 0 ]; then
               echo "Another Monitor run is queued — handing over (iteration ${iteration})."
               exit 0
             fi
