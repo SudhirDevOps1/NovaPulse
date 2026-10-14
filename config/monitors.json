@@ -6,7 +6,7 @@
 			"url": "https://sudhirdevops1.github.io/NovaPulse/",
 			"type": "http",
 			"method": "GET",
-			"intervalSec": 300,
+			"intervalSec": 90000,
 			"timeoutMs": 10000,
 			"expectedStatus": "200-299",
 			"failuresBeforeDown": 2,
