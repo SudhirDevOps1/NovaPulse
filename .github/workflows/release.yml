@@ -1,8 +1,8 @@
 # ═══════════════════════════════════════════════════════════════════════════
-# RELEASE GATE — Google release-please v4 & Zero-Defect Release Pipeline
+# RELEASE GATE — Google release-please v5 & Zero-Defect Release Pipeline
 # ═══════════════════════════════════════════════════════════════════════════
 
-name: Release (release-please v4)
+name: Release (release-please v5)
 
 on:
   push:
@@ -68,10 +68,10 @@ jobs:
         run: pnpm run build:check
 
   # ─────────────────────────────────────────────────────────────────────────
-  # STAGE 2: GOOGLE RELEASE-PLEASE V4 ENGINE
+  # STAGE 2: GOOGLE RELEASE-PLEASE V5 ENGINE
   # ─────────────────────────────────────────────────────────────────────────
   release-please:
-    name: Google release-please v4
+    name: Google release-please v5
     needs: quality-gate
     runs-on: ubuntu-latest
     permissions:
