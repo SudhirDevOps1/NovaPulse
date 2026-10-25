@@ -174,6 +174,7 @@ jobs:
         run: |
           set -euo pipefail
           BASE_SHA="$(git rev-parse HEAD)"
+          deploy_dispatched_at=-1200 # sentinel: lets the first iteration dispatch
           git config user.name "uptime-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           DEADLINE=$((SECONDS + 19800)) # 5 h 30 m, inside the 355-min job timeout
@@ -221,10 +222,26 @@ jobs:
               git push --force origin HEAD:state
             fi
             if [ "$GITHUB_REF_NAME" = "$DEFAULT_BRANCH" ]; then
-              # Fresh dashboard data every iteration: deploy-only runs rebuild
-              # site/ from the state branch this loop just pushed.
-              printf '%s' "{\"ref\":\"${GITHUB_REF_NAME}\",\"inputs\":{\"mode\":\"deploy\"}}" \
-                | gh api -X POST "repos/${GITHUB_REPOSITORY}/actions/workflows/monitor.yml/dispatches" --input -
+              # Fresh dashboard data every iteration — but never while a deploy
+              # run is still going. Dispatching sends a *new deployment request
+              # for the github-pages environment, which cancels the pending one
+              # (measured: 0 deploy successes in 100 runs, each killed ~5 min
+              # in by the next dispatch). Skip while deploys are active, and
+              # force one through if a stale run seems wedged > 20 min.
+              deploy_active="$(gh api \
+                "repos/${GITHUB_REPOSITORY}/actions/workflows/monitor.yml/runs?branch=${GITHUB_REF_NAME}&per_page=20" \
+                --jq '[.workflow_runs[] | select(((.name // "") | endswith("deploy"))) | select(.status == "queued" or .status == "pending" or .status == "in_progress")] | length' \
+                2>/dev/null || true)"
+              case "$deploy_active" in
+                '' | *[!0-9]*) deploy_active=0 ;;
+              esac
+              if [ "$deploy_active" -eq 0 ] || [ $((SECONDS - deploy_dispatched_at)) -ge 1200 ]; then
+                printf '%s' "{\"ref\":\"${GITHUB_REF_NAME}\",\"inputs\":{\"mode\":\"deploy\"}}" \
+                  | gh api -X POST "repos/${GITHUB_REPOSITORY}/actions/workflows/monitor.yml/dispatches" --input -
+                deploy_dispatched_at=$SECONDS
+              else
+                echo "A deploy run is still active — skipping this iteration's dispatch (dispatched $((SECONDS - deploy_dispatched_at))s ago)."
+              fi
             else
               echo "Skipping the deploy request: only ${DEFAULT_BRANCH} may deploy (github-pages environment policy)."
             fi
