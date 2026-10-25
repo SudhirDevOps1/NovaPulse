@@ -1,0 +1,9 @@
+# NovaPulse is a single-package repo; this file doubles as pnpm's settings file.
+# (pnpm 12 no longer reads the `pnpm` field from package.json.)
+packages:
+  - '.'
+
+# Transitively required via express; GHSA-27r3-jxmh-p828 (HIGH) is patched in
+# >= 2.4.0. The override keeps the graph safe even if express regresses.
+overrides:
+  body-parser: '^2.4.0'
