@@ -6,7 +6,7 @@
 > unless a session is actively working on it right now. Acceptance criteria are
 > written so an agent can verify them without asking a question.
 >
-> Last reviewed against `main`: **2026-10-07** · baseline `2026.1.0`.
+> Last reviewed against `main`: **2026-10-25** - baseline `2026.1.3`.
 
 ---
 
