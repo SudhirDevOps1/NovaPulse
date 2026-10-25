@@ -324,7 +324,8 @@ flowchart LR
     PR[Pull Request] --> D1[Darwaza 1: Fast PR Gate]
     D1 -->|Pass| D2[Darwaza 2: Heavy PR Gate]
     D2 -->|Pass| Merge[Merge to Main]
-    Merge --> Release[Release Gate: release-please v4]
+    Merge --> Rel[Release PR drafted by release-please v5]
+    Rel --> Publish[Release tag workflow: tag + GH Release]
     Daily[Nightly 2:00 AM IST] --> D3[Darwaza 3: Deep Audit]
 ```
 
@@ -333,7 +334,7 @@ flowchart LR
 | **🚪 Darwaza 1** | [ci.yml](.github/workflows/ci.yml) | Fast PR Gate: Matrix tests across Node 20/22/24, typecheck, ESLint, static site build. | **Blocks PR Merge** |
 | **🚪 Darwaza 2** | [e2e-gate.yml](.github/workflows/e2e-gate.yml) | Heavy PR Gate: Playwright E2E tests on desktop/mobile + OWASP ZAP baseline security scan. | **Blocks PR Merge** |
 | **🚪 Darwaza 3** | [security-scan.yml](.github/workflows/security-scan.yml) | Nightly Deep Audit: GitHub CodeQL v4 AST scan, Semgrep SAST, NPM vulnerability audit, and SonarQube quality report. | **Auto-files GitHub Issue** |
-| **🚀 Release** | [release.yml](.github/workflows/release.yml) | Automated Semantic Versioning: Google `release-please` v4 calculates next tag and generates [CHANGELOG.md](.ai/CHANGELOG.md). | **Creates Release PR** |
+| **🚀 Release** | [release.yml](.github/workflows/release.yml) + [release-tag.yml](.github/workflows/release-tag.yml) | Automated Semantic Versioning: Google `release-please` v5 drafts the release PR from Commits; the tag+publish workflow cuts the tag & GitHub Release on merge (ADR-0009) and generates [CHANGELOG.md](.ai/CHANGELOG.md). | **Creates Release PR** |
 
 ---
 
@@ -455,7 +456,7 @@ Full walkthrough: **[CONTRIBUTING.md](CONTRIBUTING.md)** · user manual: **[docs
 
 Contributions are welcome! Please follow our established quality guidelines:
 - 📜 **Master Governance Laws**: [`.ai/RULES.md`](.ai/RULES.md)
-- 📝 **Conventional Commits**: Enforced via `commitlint` (`feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`)
+- 📝 **Conventional Commits**: Enforced via `commitlint` — allowed types match [`commitlint.config.mjs`](commitlint.config.mjs): `feat:`, `fix:`, `perf:`, `refactor:`, `docs:`, `test:`, `chore:`, `ci:`, `build:`, `revert:`, `deps:`, `security:` (scope enum: `api`, `probe`, `store`, `analytics`, `notify`, `checker`, `ui`, `dashboard`, `status`, `security`, `ci`, `docs`, `deps`, `release`, `monitor`, `tools`)
 - ✅ **Verification**: `pnpm run verify` locally before opening a PR — that is
   `pnpm run check` (typecheck ×2, lint at 0 warnings, tests, build) **plus**
   `pnpm run e2e` (26 specs; run `pnpm e2e:install` once first).

@@ -1,9 +1,13 @@
 # 🚀 NovaPulse — Release Process
 
-> NovaPulse releases are driven by **[release-please v4](https://github.com/googleapis/release-please)**
-> from Conventional Commits. Humans merge code; the bot versions it, writes the
-> changelog, tags it and publishes the GitHub Release. Rules that feed this
-> process: [`RULES.md`](RULES.md) (L-31 commits, L-32 docs sync, L-33/L-34 gates).
+> NovaPulse releases run on **[release-please v5](https://github.com/googleapis/release-please)**
+> from Conventional Commits, in a **two-workflow split** (ADR-0009):
+> [`release.yml`](../.github/workflows/release.yml) only *drafts* the release
+> PR (`skip-github-release: true`); [`release-tag.yml`](../.github/workflows/release-tag.yml)
+> runs on that PR's merge and does the actual **tag + GitHub Release + label
+> swap**. Humans merge code; the bot versions it, writes the changelog, and a
+> follow-up workflow publishes. Rules that feed this process:
+> [`RULES.md`](RULES.md) (L-31 commits, L-32 docs sync, L-33/L-34 gates).
 
 ---
 
@@ -12,7 +16,7 @@
 | file | current content | role |
 | --- | --- | --- |
 | [`release-please-config.json`](../release-please-config.json) | one package at `"."` | *how* to release |
-| [`.release-please-manifest.json`](../.release-please-manifest.json) | `{ ".": "2026.1.0" }` | *what is already released* — the bookkeeping baseline for the next bump |
+| [`.release-please-manifest.json`](../.release-please-manifest.json) | `{ ".": "2026.1.4" }` | *what is already released* — the bookkeeping baseline for the next bump |
 
 `release-please-config.json`, key by key (as read from the file):
 
@@ -39,8 +43,8 @@ changelog entries will be overwritten on the next release.
 
 ## 2 · Versioning scheme
 
-Verified: `package.json` → `2026.1.0`, manifest → `2026.1.0`, changelog heading
-→ `## [2026.1.0](https://github.com/SudhirDevOps1/NovaPulse/compare/v2026.1.0...HEAD) (2026-10-07)`. The scheme is
+Verified: `package.json` → `2026.1.4`, manifest → `2026.1.4`, changelog heading
+→ `## [2026.1.4](https://github.com/SudhirDevOps1/NovaPulse/compare/v2026.1.3...v2026.1.4) (2026-10-25)`. The scheme is
 **calendar-flavoured semver**: the leading component is the release year, the
 remaining two follow normal semver rules applied by release-please to whatever
 is currently in the manifest:
@@ -59,23 +63,38 @@ of this scheme, not a bug to "fix" quietly.
 
 ---
 
-## 3 · The `release.yml` workflow
+## 3 · The two release workflows
 
-[`.github/workflows/release.yml`](../.github/workflows/release.yml)
-— *Release (release-please v4)*:
+### 3a · [`release.yml`](../.github/workflows/release.yml) — *Release (release-please v5)* — drafts only
 
 | aspect | value |
 | --- | --- |
-| triggers | `workflow_dispatch` only (manual — a push to `main` never cuts a release) |
+| triggers | `push` to `main` **and** `workflow_dispatch` (manual version override input) |
 | concurrency | group `release-please`, `cancel-in-progress: false` (never abort a half-finished release) |
 | permissions | `contents: write`, `pull-requests: write` |
-| action | `googleapis/release-please-action@v4` with `secrets.GITHUB_TOKEN`, `config-file: release-please-config.json`, `manifest-file: .release-please-manifest.json` |
-| outputs surfaced | `releases_created`, `pr`, `tag_name` appended to `$GITHUB_STEP_SUMMARY` in the *Summarise* step |
+| action | `googleapis/release-please-action@v5` with `secrets.GITHUB_TOKEN`, `config-file: release-please-config.json`, `manifest-file: .release-please-manifest.json` |
+| `skip-github-release: true` | release-please **never calls `POST /releases` itself** — that call 403s for this integration no matter the token type (measured: run `40174328094`; see ADR-0009) |
+| outputs surfaced | `version` + summary appended to `$GITHUB_STEP_SUMMARY` in the *Summarise* step |
 | relation to gates | intentionally decoupled from Darwazas 1–2 (see ADR-0008) |
 
 **Nothing is ever tagged without a green CI:** the bot only opens/updates a
 release PR; that PR is an ordinary PR and must clear Darwaza 1 (`gate`) and
 Darwaza 2 (`e2e` + `zap`) before it can merge.
+
+### 3b · [`release-tag.yml`](../.github/workflows/release-tag.yml) — *Release tag (publish v\*)* — publishes
+
+| aspect | value |
+| --- | --- |
+| trigger | `pull_request: closed` where the PR is **merged**, targets `main`, and carries the `autorelease: pending` label (match is a glob on the literal label — with the space; `autorelease:pending` would have missed PR #30's, measured run `40176507812`) |
+| permissions | `contents: write`, `pull-requests: write` |
+| notes | extracted from the release-please changelog section for the manifest version (`awk`, not hand-written notes) |
+| tag pinning | `gh release create "v<version>" --target "$GITHUB_SHA"` — `$GITHUB_SHA` is the release PR's merge commit, so a racing merge cannot move the tag. `--verify-tag` is deliberately **not** used: the tag does not exist before this step creates it (measured with v2026.1.3) |
+| label swap | after a successful release: `autorelease: pending` → `autorelease: tagged`. Without the swap the next release.yml run aborts ("There are untagged, merged release PRs outstanding", measured run `40177869155`) |
+| idempotence | if `v<version>` already exists, the run logs "nothing to do" and exits success |
+
+The pipeline is therefore proven end-to-end: v2026.1.4 was the first release
+cut entirely by this split (tag `020ea1b`, label swap logged by run
+`40179351662`).
 
 ---
 
@@ -83,21 +102,26 @@ Darwaza 2 (`e2e` + `zap`) before it can merge.
 
 ```
 commits merged to main (Conventional)
-        │  you run release.yml by hand (Actions → Release → Run workflow)
+        │  every push to main + manual dispatch
         ▼
-release-please computes the bump from commits since the last tag
+release.yml (release-please v5, skip-github-release)
         │
         ▼
-opens/updates ONE release PR:  chore(release): release v<next>  (grouped title pattern)
-        │  PR body = curated release notes
+opens/updates ONE release PR:  chore: release 2026.1.5
+        │  PR body = release notes; bot branch re-pushes re-run the gates,
+        │  which need workflow approval for fork/bot runs (approve via API)
         ├── must pass Darwaza 1 + Darwaza 2, then a human merges it
         ▼
-next run of release.yml detects the merged release PR
-        ├── creates tag v<next>   (include-component-in-tag: false)
-        ├── creates the GitHub Release with the notes
-        ├── appends the section to .ai/CHANGELOG.md
-        └── bumps .release-please-manifest.json and package.json → version
+merge fires release-tag.yml (pull_request closed + merged)
+        ├── extracts the changelog section for the manifest version
+        ├── creates tag v<next> pinned --target <merge SHA>
+        ├── creates the GitHub Release with those notes
+        └── swaps the label: autorelease: pending → tagged
 ```
+
+Note what is *not* in the flow: `.ai/CHANGELOG.md` content for the pending
+release is written by release-please **inside the release PR**; the manifest
+and `package.json` version bump land on `main` through that same merge.
 
 Confirm after every release:
 
@@ -105,6 +129,7 @@ Confirm after every release:
 git fetch --tags
 git tag --list "v*" | sort -V | tail -3
 node -p "require('./package.json').version"      # must equal the manifest
+gh pr view <release PR> --json labels --jq '[.labels[].name]'   # must show autorelease: tagged
 ```
 
 ---
@@ -164,11 +189,14 @@ Run against the tree you are about to release; all boxes are mandatory
 | Version skew `package.json` vs manifest | interrupted run | re-run `release.yml` via `workflow_dispatch`; release-please reconciles both files |
 | Release PR red | a gate failed | fix the code — never disable a gate (L-34) |
 | Changelog entry missing | commit type outside the enum | fix the commit message; the next release picks it up |
+| release.yml run aborts: *"There are untagged, merged release PRs outstanding"* | a merged release PR still carries `autorelease: pending` (its `release-tag.yml` run failed or never fired) | fix/publish the tag first — e.g. dispatch the `Release tag` workflow or re-merge — **never** hand-swap the label before the release exists |
+| Release PR checks show no runs (`action_required`) | bot branch re-pushed, orphaning the previous gate runs | approve the three new runs via `POST /actions/runs/{id}/approve`, then watch `gh pr checks` |
+| `release-tag.yml` logs *"not a release PR"* | label glob did not match — the label must literally read `autorelease: pending` **with the space** | correct the label on the PR and re-merge (measured run `40176507812`; the space bug ate PR #30) |
 
 ## References
 
 - [`../.ai/RULES.md`](../.ai/RULES.md) — L-02, L-31, L-32, L-33, L-42
 - [`../.ai/CHANGELOG.md`](../.ai/CHANGELOG.md) — generated log + the block markers
 - [`../commitlint.config.mjs`](../commitlint.config.mjs) — types, scopes, length limits
-- [`.github/workflows/release.yml`](../.github/workflows/release.yml) · [`ci.yml`](../.github/workflows/ci.yml) · [`e2e-gate.yml`](../.github/workflows/e2e-gate.yml) · [`security-scan.yml`](../.github/workflows/security-scan.yml)
-- [`../.ai/DECISIONS.md`](../.ai/DECISIONS.md) — ADR-0008 (three-darwaza CI)
+- [`.github/workflows/release.yml`](../.github/workflows/release.yml) · [`release-tag.yml`](../.github/workflows/release-tag.yml) · [`ci.yml`](../.github/workflows/ci.yml) · [`e2e-gate.yml`](../.github/workflows/e2e-gate.yml) · [`security-scan.yml`](../.github/workflows/security-scan.yml)
+- [`../.ai/DECISIONS.md`](../.ai/DECISIONS.md) — ADR-0008 (three-darwaza CI) · ADR-0009 (the release split)

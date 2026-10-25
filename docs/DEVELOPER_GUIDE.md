@@ -18,7 +18,7 @@ you edit code ──► branch ──► pull request ──► 4 required check
                                                                     │
                         ┌───────────────────────────────────────────┤
                         ▼                                           ▼
-              Release (manual dispatch)                 Monitor (every 5 min)
+              Release (push + manual dispatch)                 Monitor (every 5 min)
               opens `chore: release X` PR                 probe → state branch → Pages
                         │
                         ▼
@@ -29,17 +29,17 @@ you edit code ──► branch ──► pull request ──► 4 required check
 | :--- | :--- |
 | `server.js`, `lib/` | HTTP server, probe / store / notify / analytics engines |
 | `public/` | dashboard source · `site/` = its generated static copy (`pnpm run build`) |
-| `test/` | 25 unit+integration specs (`node --test`) |
-| `e2e/` | Playwright — 13 logical specs × 2 projects = **26 executions** |
+| `test/` | 57 unit+integration specs (verified: npm test -> tests 57, pass 57, fail 0, 2026-10-25) (`node --test`) |
+| `e2e/` | Playwright — 26 specs × 2 projects = **26 executions** |
 | `tools/` | CI helpers: `gh-check.js` (prober), `gh-build.js` (static builder), `zap-policy.js` |
-| `.github/workflows/` | the six workflows in §2 |
+| `.github/workflows/` | the CI / release / monitor workflows described in #2 |
 | `.github/dependabot.yml` | weekly grouped dependency PRs (Mondays 06:30 `Asia/Kolkata`) |
 | `.ai/`, `.agent/` | architecture, rules, bug register, decision log, agent skills |
 | `docs/` | this file · `GETTING_STARTED` · `RULES` · `SECURITY` · `RELEASE` |
 
 ---
 
-## 2 · The six workflows — what runs, when, and what a red ✗ means
+## 2 - The workflows — what runs, when, and what a red ✗ means
 
 Everything lives in the **Actions** tab. Each run = a workflow; inside it are
 **jobs**; a job is what reports a ✅/✗ next to a PR.
@@ -50,14 +50,14 @@ Everything lives in the **Actions** tab. Each run = a workflow; inside it are
 | 2 | **Darwaza 2 · Heavy PR Gate** (`e2e-gate.yml`) | every PR to `main`, manual | `Playwright E2E (desktop + mobile)` · `OWASP ZAP baseline (DAST)` | ✅ **both** |
 | 3 | **Sonar quality gate** (`sonar.yml`) | every PR, every push to `main`, manual | `SonarQube scan + quality gate notification` | ✅ |
 | 4 | **Darwaza 3 · Nightly Deep Audit** (`security-scan.yml`) | nightly `30 20 * * *` UTC (= **02:00 IST**), manual | `codeql` · `Semgrep SAST` · `NPM critical/high CVE audit` · `File issue on failure` | ❌ nightly only |
-| 5 | **Release** (`release.yml`) | **manual only** (`workflow_dispatch`) | `release-please` | ❌ |
+| 5 | **Release** (`release.yml`) + **Release tag** (`release-tag.yml`) | release.yml: push to `main` + manual version override; release-tag.yml: release-PR merge | `release-please` --> tag + GH Release | ? |
 | 6 | **Monitor** (`monitor.yml`) | push to `main`/`master` (**site paths only**), cron `*/5 * * * *` (each tick starts the **keeper** loop), `repository_dispatch` (`probe`/`check`/`monitor`), manual `mode` (auto/keeper/deploy) | `probe` · `keeper` · `deploy` | ❌ |
 
 ### Darwaza 1 — the fast gate (`ci.yml`)
 
 * **`Quality gate (Node 20/22/24)`** — matrix over three Node versions, each
   runs `pnpm run check` = `typecheck` (two tsconfigs) → `lint`
-  (`--max-warnings=0`) → `test` (25 specs) → `build` (regenerates `site/`).
+  (`--max-warnings=0`) → `test` (57 specs) → `build` (regenerates `site/`).
 * **`Docker build`** — the image must build (Buildx, no push).
 * **`Conventional commit lint`** — lints **every commit in the PR** against
   `commitlint.config.mjs`. Runs only on `pull_request` events, so pushes to
@@ -96,20 +96,25 @@ CodeQL (fails on error-severity alerts), Semgrep SAST (SARIF uploaded + artifact
 advisory**. On failure the `notify` job files/updates a GitHub issue. Not part
 of the merge gate — it is your overnight sweep.
 
-### Release (`release.yml`)
+### Release — release.yml + release-tag.yml
 
-`release-please` reads the Conventional Commits merged to `main` and either
-opens or updates a PR titled **`chore: release <version>`** (see PR #2).
-Merging **that** PR is what creates the tag and the GitHub Release — release
-never pushes to `main` itself. Title shape is governed by the root
-`pull-request-title-pattern` in `release-please-config.json`; don't rename it
-(commitlint would reject it).
+Releases are no longer opt-in and no longer one-workflow (ADR-0009):
 
-**The trigger is manual only.** Pushing/merging to `main` does **not** open a
-release PR, bump a version, create a tag or publish a Release — nothing. When
-you actually want to cut a release: **Actions → Release → Run workflow** →
-merge that green PR.
+1. `release.yml` (`release-please` v5, `skip-github-release: true`) runs
+   on **every push to `main`** (and manually, with a version override). It
+   reads the Conventional Commits merged since the last release and opens or
+   updates ONE release PR titled `chore: release <version>`. Title shape is
+   governed by `pull-request-title-pattern` in `release-please-config.json`;
+   don't rename it (commitlint would reject it).
+2. Merging **that** PR fires `release-tag.yml`, which extracts the
+   changelog section for the manifest version, creates the tag pinned to the
+   PR's merge SHA (`gh release create --target`), publishes the GitHub
+   Release, and swaps the label `autorelease: pending -> tagged` (without
+   the swap the next release run aborts — see `docs/RELEASE.md` #7).
 
+An ordinary `chore`-only merge still creates no release PR; `feat`/`fix`
+merges queue the next one automatically. Bot-branch re-pushes re-run the
+gates behind an approval (`POST /actions/runs/{id}/approve`).
 ### Monitor (`monitor.yml`) — your ₹0 SaaS replacement
 
 Three jobs, two concurrency groups:
@@ -246,8 +251,8 @@ git push -u origin fix/short-description
 4. After the merge, `main` kicks off **Sonar** and **Darwaza 1**; **Monitor**
    only joins in when the change touched `config/`, `public/`, `site/` or
    `tools/` (the 5-min cron deploys everything else anyway).
-5. Releases are opt-in: **Actions → Release → Run workflow** → when its
-   `chore: release X` PR is green, merge it → tag + GitHub Release.
+5. Releases are automatic on `feat`/`fix` merges: release-please (release.yml) opens the
+   `chore: release X` PR; when it is green, merge it -> tag + GitHub Release.
 
 ---
 
@@ -261,7 +266,7 @@ git push -u origin fix/short-description
 | What did ZAP/E2E find? | the run → **Artifacts** (`zap-baseline-report`, `zap_scan`, `playwright-report`, `sonar-report`, `semgrep-report`, `npm-audit-report` — kept **14 days**) | download and unzip; `zap-policy.js`'s verdict is in the job summary |
 | Is the site live? | <https://sudhirdevops1.github.io/NovaPulse/> or `curl …/api/health` | health returns monitor count, channel status, version |
 | Are probes healthy? | Actions → **Monitor** → latest run | `State unchanged` = healthy no-flip |
-| What version is out? | [Releases](https://github.com/SudhirDevOps1/NovaPulse/releases) | opened by a **manual** Release run, then created by merging that PR |
+| What version is out? | [Releases](https://github.com/SudhirDevOps1/NovaPulse/releases) | drafted by a Release run on the feat/fix merge; published by release-tag.yml on the release-PR merge |
 | Quality trend | [SonarCloud summary](https://sonarcloud.io/summary/new_code?project=SudhirDevOps1_NovaPulse) | needs the Sonar secrets (§3.3) |
 
 **"Expected — Waiting for status to be reported"** (what PR #4 shows while the
