@@ -90,4 +90,4 @@ jobs:
           gh release create "v${version}" \
             --title "v${version}" \
             --notes "$notes" \
-            --verify-target
+            --verify-tag
