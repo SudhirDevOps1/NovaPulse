@@ -13,6 +13,16 @@
 <!-- release-please-block -->
 <!-- release-please-unblock -->
 
+## [2026.1.4](https://github.com/SudhirDevOps1/NovaPulse/compare/v2026.1.3...v2026.1.4) (2026-10-25)
+
+
+### 🐛 Bug Fixes
+
+* parse captured URLs instead of substring/regex matches ([a8339b9](https://github.com/SudhirDevOps1/NovaPulse/commit/a8339b949edf33670ec09927206e9973c6126b93))
+* settle the create-probe before comparing analytics snapshots ([3e804b9](https://github.com/SudhirDevOps1/NovaPulse/commit/3e804b9b3eba080d664ddef81e4a652ba25cc74f))
+* settle the create-probe before comparing analytics snapshots ([240d618](https://github.com/SudhirDevOps1/NovaPulse/commit/240d618297201e220e360d70c842d6423362f47d))
+* **test:** assert captured URLs by origin/host instead of substring matches ([304580e](https://github.com/SudhirDevOps1/NovaPulse/commit/304580eb56c1e7770f71789d8e1c3c03206a0537))
+
 ## [2026.1.3](https://github.com/SudhirDevOps1/NovaPulse/compare/v2026.1.2...v2026.1.3) (2026-10-25)
 
 
