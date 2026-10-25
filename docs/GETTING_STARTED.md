@@ -34,7 +34,7 @@ Sanity check (must return HTTP 200 with JSON):
 
 ```bash
 curl -fsS http://localhost:3000/api/health
-# {"ok":true,"version":"2026.1.1","node":"v24.19.0",...,"monitors":1,...}
+# {"ok":true,"version":"2026.1.4","node":"v24.19.0",...,"monitors":1,...}
 ```
 
 > First boot creates `data/monitors.json` with one sample monitor, so the
@@ -224,7 +224,7 @@ Six workflows, all under [`.github/workflows/`](../.github/workflows/):
 | **Darwaza 2 · Heavy PR Gate** (`e2e-gate.yml`) | every PR | Playwright E2E (desktop + mobile) and the OWASP ZAP baseline DAST scan, evaluated by `tools/zap-policy.js`. |
 | **Sonar quality gate** (`sonar.yml`) | every PR + push | SonarCloud analysis + quality-gate notification. |
 | **Darwaza 3 · Nightly Deep Audit** (`security-scan.yml`) | nightly 02:00 + manual | CodeQL, Semgrep, `npm audit` — files an issue when it finds something. |
-| **Release** (`release.yml`) | manual only (`workflow_dispatch`) | `release-please` opens/updates the release PR; merging it tags + publishes the GitHub Release. Pushes never cut a release on their own. |
+| **Release** (`release.yml`) + **Release tag** (`release-tag.yml`) | release.yml: push to `main` + manual; release-tag.yml: release-PR merge | release-please drafts the release PR; merging it publishes the tag + GitHub Release (ADR-0009). |
 | **Monitor** (`monitor.yml`) | cron `*/5` (each delivered tick starts the 5-min **keeper loop**), `repository_dispatch` (external pinger), push to `config/`/`public/`/`site/`/`tools/`, manual `mode` | probes your monitors every ~5 min, pushes state, deploys `site/` to Pages. Full details: [Monitoring guide](MONITORING.md). |
 
 **Branch protection on `main` (enabled on this repo):** pull requests only, no
@@ -237,10 +237,10 @@ solo maintainer can merge their own PR once it's green.
 > current value, where artifacts/summaries live, how to monitor runs:
 > [`docs/DEVELOPER_GUIDE.md`](DEVELOPER_GUIDE.md).
 
-**Release flow (opt-in):** run **Actions → Release → Run workflow** —
-release-please opens `chore: release <version>` → merge that → tag + GitHub
-Release are published. Merging ordinary PRs to `main` never creates a version
-or tag by itself.
+**Release flow (automatic):** pushing `feat`/`fix` commits to `main` makes release-please open the
+`chore: release <version>` PR; merging that green PR publishes the tag + GitHub Release (`release-tag.yml`).
+`chore`-only merges open no release PR (ADR-0009; details: docs/RELEASE.md #4).
+
 
 ---
 
