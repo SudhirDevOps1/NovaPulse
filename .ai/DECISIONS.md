@@ -283,6 +283,59 @@ emergency fix; ✅ nightly failures raise an issue instead of being ignored;
 
 ---
 
+## ADR-0009 — release-please drafts release PRs; a follow-up workflow tags the release
+
+| field | value |
+| --- | --- |
+| status | Accepted |
+| date | 2026-10-25 |
+| deciders | repo maintainer + repo-ops agent |
+| raised by | BUG-2026-0004 follow-up: release-please's POST /releases still 403s after the Darwaza-3 fixes (PR #28) |
+
+**Context.** ADR-era release pipeline left `skip-github-release: false`,
+so every push to `main` failed inside release-please with
+`403 Resource not accessible by integration` — measured on the same
+job, seconds apart and with the same token (run `40174328094`:
+scratch `POST /releases` as `GITHUB_TOKEN` -> 201; release-please's own
+attempt 3 s later -> 403; the identical payload from an operator token
+answers 422 `already_exists`). Repo settings were verified clean
+(`default_workflow_permissions=write`; no rulesets beyond `main`
+protection), so this is a server-side verdict for the github-actions
+integration, not a fixable misconfiguration. The state machine also
+bit both sides: a merged release PR whose `autorelease: pending` label
+never gets swapped makes release-please abort drafting the next
+release PR ("There are untagged, merged release PRs outstanding",
+run `40177869155`, blocking 2026.1.4 behind PR #30).
+
+**Decision.** We will keep release-please only as the release-PR
+drafting engine (`skip-github-release: true` in `release.yml`) and
+create the tag + release in a separate workflow - `release-tag.yml`
+runs on release-PR merge (`gh release create --target <merge SHA>`),
+then swaps the label `autorelease: pending -> tagged` so the drafting
+engine never wedges.
+
+**Alternatives rejected.**
+
+| option | why it lost |
+| --- | --- |
+| store an operator PAT as a secret for release-please | broadens the blast radius of one secret to full repo writes for a convenience `gh release create` already provides |
+| call the releases endpoint with a different token type inside the action run | same 403 shape - the verdict belongs to the integration, not the token type |
+| abandon release-please and draft release PRs by hand | loses conventional-commit -> semver mapping and changelog block maintenance |
+
+**Consequences.**
+- the Release workflow is green on every push (post-PR #28, zero failures);
+- the tag is pinned to the release PR's merge SHA, immune to racing merges;
+- the label swap closes the drafting loop without the action.
+Costs: two workflows must stay in sync (the label glob needs the
+literal `autorelease: pending` spelling - the no-space bug ate PR #30's
+auto-tag once; fixed in PR #35); and `--verify-tag` semantics do not
+apply (the tag never exists pre-create), so the workflow pins with
+`--target` instead - the guard comment lives next to the step.
+
+**Superseded?** No.
+
+---
+
 ## Writing a new ADR
 
 ```markdown

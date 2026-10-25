@@ -19,6 +19,45 @@ _No open incidents — every registered defect is fixed and verified in CI._
 
 ## 2 · Closed incidents
 
+### BUG-2026-0014 — every Pages deploy queued forever: cancelled runs wedged the `github-pages` environment with still-"active" deployments
+
+| field | value |
+| --- | --- |
+| status | ✅ **CLOSED** — 2026-10-25. Evidence: deploy job of push run `40173517074` pending since 07:43 UTC with no runner while `ubuntu-latest` served PR-gate jobs seconds earlier; two standalone dispatches (`40175081958`, `40175652838`) pending likewise; a no-`environment:` variant of the same job completed in ~40 s (run `40176202736`); `pending_deployments` API empty, branch policy contained `main`, `pages/builds` empty — only deployments surfaced as the blocker (ids `7309900086`…`7310210675`, all left `active` by cancelled runs). Backlog marked inactive via `POST /deployments/{id}/statuses`; standalone deploy then succeeded end-to-end (run `40176831321`) and the push run's deploy job completed (run `40176714934`). |
+| severity | **high** — the live status site stopped updating; every deploy request from the 5-minute keeper manufactured another zombie |
+| area | `.github/workflows/monitor.yml` (deploy job) |
+| introduced | `environment: github-pages` + `cancel-in-progress: false` concurrency + the keeper's dispatch-supersede loop (pre-PR #33) |
+| rule produced | `.ai/RULES.md` → **L-03** / **L-04** (isolate with a one-variable variant before fixing); **L-36** spirit (a wedged queue is silent data-integrity rot for the status page) |
+
+**Symptom**
+> Every `Monitor · deploy` job sat `pending` for hours; cancelling and
+> redispatching never freed it, while unrelated CI jobs ran normally in
+> the same window.
+
+**Root cause**
+Deployments to the `github-pages` environment serialize: a new
+deployment waits until every older one is finalized. Cancelled runs
+leave their deployment stuck in `active` forever, so each
+dispatch-then-cancel cycle added one more tombstone. The keeper's
+pre-merge pattern (dispatch deploy, cancel, repeat every ~5 minutes)
+manufactured dozens; after that every fresh deploy queued behind them.
+
+**Fix**
+- One-time: mark every stale `active` deployment `inactive` via the
+  deployments API.
+- Permanent: `monitor.yml` probe job gained a **"Finalize stale pending
+  deployments"** step (`if: always()`, `deployments: write`) that marks
+  any `github-pages` deployment of an older run inactive before the
+  same run's deploy request (PR #34). Group renamed to
+  `pages-deploy-v2` alongside (PR #33) as belt-and-braces.
+
+**Verification** — `Monitor` push run `40176714934`: probe success,
+deploy success; standalone `Monitor · deploy` run `40176831321`
+success; live site `https://sudhirdevops1.github.io/NovaPulse/`
+HTTP 200. Subsequent schedule ticks green.
+
+---
+
 ### BUG-2026-0013 — GitHub Actions cron queue lag delayed monitoring by 3 hours; interval settings did not repeat continuously
 
 | field | value |
