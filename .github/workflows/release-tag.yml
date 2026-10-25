@@ -44,7 +44,7 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
-          labels="$(gh pr view "$PR" --json labels --jq 'map(.name) | join(",")')"
+          labels="$(gh pr view "$PR" --json labels --jq '[.labels[].name] | join(",")')"
           if [[ "$labels" != *autorelease:pending* ]]; then
             echo "not a release PR (labels: ${labels:-none}) — skipping"
             echo "is_release=false" >> "$GITHUB_OUTPUT"
