@@ -67,6 +67,7 @@ permissions:
   pages: write # publish the status site
   id-token: write # Pages OIDC deployment
   actions: write # keeper: read queued runs + dispatch the deploy-only runs
+  deployments: write # finalize stale pending deployments (see pre-deploy step)
 
 jobs:
   probe:
@@ -124,6 +125,37 @@ jobs:
             # Force-push keeps the branch at one commit — zero repo growth.
             git push --force origin HEAD:state
           fi
+
+      # Deployments to github-pages serialize: a new one waits for every older
+      # one to be finalized. Cancelled runs (done pre-wedge at 06:17-07:43 and
+      # routinely since) leave their deployment stuck "active", so without this
+      # the NEXT deploy job queues forever with no runner. Finalize anything
+      # older than this run before we need the slot.
+      - name: Finalize stale pending deployments
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          page=1
+          while :; do
+            ids="$(gh api "repos/$GITHUB_REPOSITORY/deployments?environment=github-pages&per_page=50&page=$page" \
+              --jq '[.[] | select(.task == "deploy")] | .[].id' 2>/dev/null || true)"
+            case "$ids" in '') break ;; esac
+            for id in $ids; do
+              latest="$(gh api "repos/$GITHUB_REPOSITORY/deployments/$id/statuses?per_page=1" \
+                --jq '.[0].state // "none"' 2>/dev/null || echo "none")"
+              if [ "$latest" != "inactive" ]; then
+                gh api -X POST "repos/$GITHUB_REPOSITORY/deployments/$id/statuses" \
+                  -f state=inactive \
+                  -f description="Finalized by the deploy self-heal step: shift a cancelled deploy run off the queue." \
+                  --jq '.state' >/dev/null && echo "deployment $id ($latest) -> inactive"
+              fi
+            done
+            page=$((page+1))
+            [ "$page" -gt 5 ] && break
+          done
 
   # Started by every delivered schedule tick (and by `inputs.mode = keeper`).
   # Each iteration = one full probe pass + a state push + a deploy request,
