@@ -63,10 +63,14 @@ test('notify posts a BlockKit payload to the Slack webhook', async () => {
 	assert.match(payload.text, /DOWN/);
 	assert.equal(payload.blocks[0].type, 'section');
 	assert.equal(payload.blocks[0].text.type, 'mrkdwn');
-	// Anchor the URL expectation: a substring regex like /example\.com/ could
-	// also pass for a lookalike domain, which is exactly what this assertion is
-	// there to catch. (CodeQL: js/regex/missing-regexp-anchor.)
-	assert.ok(payload.blocks[1].elements[0].text.includes('https://example.com'));
+	// Assert on the parsed URL, not a substring: 'https://example.com' as a
+	// plain includes() also passes for https://example.com.evil.tld (CodeQL
+	// js/incomplete-url-substring-sanitization), and the point of the check is
+	// that the monitor's OWN origin reached the Slack card. The mrkdwn wraps
+	// the URL in backticks, so strip them before parsing.
+	const token = payload.blocks[1].elements[0].text.replace(/`/g, ' ');
+	const linked = token.split(/\s+/).find((part) => part.startsWith('https://')) || '';
+	assert.equal(new URL(linked).origin, 'https://example.com');
 });
 
 test('a failing channel never blocks the configured ones', async () => {
