@@ -13,6 +13,18 @@
 <!-- release-please-block -->
 <!-- release-please-unblock -->
 
+## [2026.1.3](https://github.com/SudhirDevOps1/NovaPulse/compare/v2026.1.2...v2026.1.3) (2026-10-25)
+
+
+### 🐛 Bug Fixes
+
+* **monitor:** fresh Pages deploy concurrency group to un-wedge the pending queue ([e89c2ad](https://github.com/SudhirDevOps1/NovaPulse/commit/e89c2ad6cb5b453c800d370cbc9c11cd39541135))
+* **monitor:** un-wedge the Pages deploy queue with a fresh concurrency group ([004f1a9](https://github.com/SudhirDevOps1/NovaPulse/commit/004f1a9156dd08f48787d55797e1229bf4295e30))
+* **security:** block prototype pollution via imported header names, anchor test regex ([aa6c04e](https://github.com/SudhirDevOps1/NovaPulse/commit/aa6c04ee66c086d39a3e7466e7f94f325563df96))
+* **security:** prototype-pollution guard for imported headers + CodeQL triage ([6c142a7](https://github.com/SudhirDevOps1/NovaPulse/commit/6c142a7757071cf56784aa148e3382d80de760b3))
+* **ui:** assemble the RSS feed without a raw interpolated template in res.send ([76b9482](https://github.com/SudhirDevOps1/NovaPulse/commit/76b9482a53d1d2f763255f048b3835e7c933531b))
+* **ui:** restructure the RSS feed assembly so Semgrep's raw-html rule stays quiet ([882ab39](https://github.com/SudhirDevOps1/NovaPulse/commit/882ab39535d896b56bbbcad7860a896386135b56))
+
 ## [2026.1.2](https://github.com/SudhirDevOps1/NovaPulse/compare/v2026.1.1...v2026.1.2) (2026-10-07)
 
 
