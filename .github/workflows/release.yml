@@ -79,6 +79,34 @@ jobs:
       pull-requests: write
       issues: write
     steps:
+      # Temporary: a scratch-tag POST /releases answer isolates whether the
+      # 403 the release-please step keeps reporting is a GITHUB_TOKEN grant
+      # problem or something inside the action. Removed once triaged.
+      - name: Token diagnostic — can GITHUB_TOKEN create releases?
+        continue-on-error: true
+        env:
+          DIAG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="v0.0.0-diagnostic-$GITHUB_RUN_ID"
+          code=$(curl -s -o /tmp/diag.json -w '%{http_code}' \
+            -X POST "https://api.github.com/repos/$GITHUB_REPOSITORY/releases" \
+            -H "Authorization: token $DIAG_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -d '{"tag_name":"'"$tag"'","name":"diagnostic","body":"delete me","draft":false,"prerelease":true}')
+          echo "POST /releases as GITHUB_TOKEN -> HTTP $code" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$code" = "201" ]; then
+            id=$(curl -s "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/$tag" \
+              -H "Authorization: token $DIAG_TOKEN" | grep -o '"id": *[0-9]*' | head -1 | grep -o '[0-9]*')
+            curl -s -o /dev/null -X DELETE "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/$id" \
+              -H "Authorization: token $DIAG_TOKEN"
+            curl -s -o /dev/null -X DELETE "https://api.github.com/repos/$GITHUB_REPOSITORY/git/refs/tags/$tag" \
+              -H "Authorization: token $DIAG_TOKEN"
+            echo "scratch release $id deleted" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            cat /tmp/diag.json | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Run release-please
         id: release
         uses: googleapis/release-please-action@v4
