@@ -25,6 +25,11 @@ export default {
 				'ci',
 				'build',
 				'revert',
+				// Dependabot's default commit-message prefix for the npm ecosystem
+				// (`deps: bump ...`): the lint gate lints dependabot PR commits too,
+				// so the dependency-update type must be accepted here. release-please
+				// picks it up via the "under-the-hood" hidden section by default.
+				'deps',
 			],
 		],
 		'type-case': [2, 'always', 'lower-case'],
