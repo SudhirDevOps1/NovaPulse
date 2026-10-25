@@ -63,7 +63,10 @@ test('notify posts a BlockKit payload to the Slack webhook', async () => {
 	assert.match(payload.text, /DOWN/);
 	assert.equal(payload.blocks[0].type, 'section');
 	assert.equal(payload.blocks[0].text.type, 'mrkdwn');
-	assert.match(payload.blocks[1].elements[0].text, /example\.com/);
+	// Anchor the URL expectation: a substring regex like /example\.com/ could
+	// also pass for a lookalike domain, which is exactly what this assertion is
+	// there to catch. (CodeQL: js/regex/missing-regexp-anchor.)
+	assert.ok(payload.blocks[1].elements[0].text.includes('https://example.com'));
 });
 
 test('a failing channel never blocks the configured ones', async () => {
