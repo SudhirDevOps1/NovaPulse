@@ -1,0 +1,89 @@
+# Publishes the GitHub release + tag after a release-please PR merges.
+#
+# Why the split: release-please's own POST /releases is rejected with
+# "Resource not accessible by integration" from the github-actions
+# environment (see release.yml for the measured evidence, runs
+# 40174328094/40173517134), while the same token inside `gh release
+# create` succeeds. So release.yml only manages the release PR
+# (skip-github-release: true), and this workflow does the tagging.
+#
+# Gate: only runs when a MERGED pull request still carries the
+# `autorelease: pending` label — which is what release-please labels its
+# release PRs with and cannot lose here, since the action that normally
+# swaps it for `autorelease: tagged` is skipped by the split above.
+
+name: Release tag (publish v*)
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-tag
+  cancel-in-progress: false
+
+jobs:
+  tag-release:
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Skip unless the PR is a release-please release PR
+        id: gate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          labels="$(gh pr view "$PR" --json labels --jq 'map(.name) | join(",")')"
+          if [[ "$labels" != *autorelease:pending* ]]; then
+            echo "not a release PR (labels: ${labels:-none}) — skipping"
+            echo "is_release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create the release
+        if: steps.gate.outputs.is_release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          version="$(node -e 'console.log(require("./.release-please-manifest.json")["."])')"
+          if gh release view "v${version}" >/dev/null 2>&1; then
+            echo "Release v${version} already exists — nothing to do."
+            exit 0
+          fi
+
+          # Release notes straight from the release-please-maintained
+          # changelog: the section heading for this version through to the
+          # next heading, then strip the heading itself.
+          notes="$(awk -v v="$version" '
+            /^## \[/ {seen = ($0 ~ "\\[" v "]"); next}
+            seen {print}
+          ' .ai/CHANGELOG.md)"
+
+          if [ -z "$notes" ]; then
+            notes="NovaPulse ${version}"
+          fi
+
+          {
+            echo "## 🏷️ Tagged Release"
+            echo ""
+            echo "- **Tag**: \`v${version}\`"
+            echo "- **Source**: release PR #${{ github.event.pull_request.number }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          gh release create "v${version}" \
+            --title "v${version}" \
+            --notes "$notes" \
+            --verify-target
