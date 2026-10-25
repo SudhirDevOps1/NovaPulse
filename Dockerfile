@@ -3,7 +3,9 @@ FROM node:22-alpine AS deps
 WORKDIR /app
 RUN apk add --no-cache curl
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
-COPY package.json pnpm-lock.yaml ./
+# pnpm-workspace.yaml carries the dependency overrides the lockfile records;
+# leaving it out makes --frozen-lockfile fail with ERR_PNPM_LOCKFILE_CONFIG_MISMATCH.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN corepack enable && pnpm install --frozen-lockfile --prod
 
 # Runtime stage — only what the server needs to boot.

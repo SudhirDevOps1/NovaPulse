@@ -412,8 +412,8 @@ the Node event loop.
 | :---: | :--- | :--- |
 | `GET` | `/api/health` | System liveness probe, version, and active monitor counts. |
 | `GET` | `/api/stats` | Aggregated fleet status metrics and 24h summary. |
-| `GET` | `/api/analytics?range=24h\|7d\|30d` | Fleet percentiles, time-series arrays, day buckets, and SLA report. |
-| `GET` | `/api/monitors` | List of all configured monitors with 24h uptime statistics. |
+| `GET` | `/api/analytics?range=24h\|7d\|30d` | Fleet percentiles, time-series arrays, day buckets, and SLA report. Optional `?tag=prod` narrows everything to that tag. |
+| `GET` | `/api/monitors` | List of all configured monitors with 24h uptime statistics. Optional `?tag=prod` narrows the list to monitors carrying that tag. |
 | `POST` | `/api/monitors` | Create a monitor (`name`, `url`, `type`, `intervalSec`, `timeoutMs`, `expectedKeyword`, etc.). |
 | `GET` | `/api/monitors/:id` | Detailed telemetry and check history for a specific monitor. |
 | `GET` | `/api/monitors/:id/analytics` | Per-monitor latency percentiles, histogram distributions, and SLA error budget. |
@@ -425,8 +425,11 @@ the Node event loop.
 | `GET\|POST` | `/api/ping/:id` | Dead Man's Switch / Cron Heartbeat signal (also `/api/push/:id`). |
 | `GET` | `/api/incidents` | Incident timeline (`down` events, recoveries, and downtime durations). |
 | `GET` | `/api/badge/:id.svg` | Dynamic SVG status badge (`id=fleet` or monitor UUID). Supports `?style=for-the-badge`. |
+| `GET` | `/api/metrics` | Prometheus/OpenMetrics text exposition — per-monitor `up`/latency/uptime plus fleet gauges, ready for Grafana. |
+| `GET` | `/api/feed.xml` | RSS 2.0 feed of recent incidents — follow outages from any reader. |
 | `GET` | `/api/export` | Download complete state backup as JSON. |
 | `POST` | `/api/import?mode=merge\|replace` | Restore database state from backup JSON. |
+| `POST` | `/api/settings/test` | Fire a test alert on every configured channel (Settings → verify the wiring). |
 
 ---
 
