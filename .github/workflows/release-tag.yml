@@ -45,7 +45,11 @@ jobs:
         run: |
           set -euo pipefail
           labels="$(gh pr view "$PR" --json labels --jq '[.labels[].name] | join(",")')"
-          if [[ "$labels" != *autorelease:pending* ]]; then
+          # NOTE: the label literally is "autorelease: pending" (with a space),
+          # so the glob must carry it too — "autorelease:pending" (no space)
+          # never matched and the gate skipped the merge of PR #30 (run
+          # 40176507812 said "not a release PR (labels: autorelease: pending)").
+          if [[ "$labels" != *"autorelease: pending"* ]]; then
             echo "not a release PR (labels: ${labels:-none}) — skipping"
             echo "is_release=false" >> "$GITHUB_OUTPUT"
           else
