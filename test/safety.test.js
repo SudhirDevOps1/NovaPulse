@@ -260,3 +260,29 @@ test('a crafted backup cannot smuggle oversized fields past validation', () => {
 	assert.ok(monitor.rollups[0].samples.length <= 2400, 'rollup samples are capped');
 	assert.equal(monitor.history.length, 1, 'unparseable history rows are dropped');
 });
+
+test('a crafted backup cannot pollute object prototypes via header names', () => {
+	const poison = { stolen: true };
+	store.importState(
+		{
+			monitors: [
+				{
+					name: 'Polluter',
+					url: 'https://example.com/polluter',
+					// JSON.parse materialises "__proto__" as an own property, so a
+					// hand-crafted backup used to be able to swap an object's
+					// prototype chain through the dynamic header assignment.
+					headers: JSON.parse('{"__proto__": {"isAdmin": true}, "constructor": {"oops": 1}, "safe": "yes"}'),
+				},
+			],
+		},
+		'replace',
+	);
+
+	const monitor = store.list().find((m) => m.name === 'Polluter');
+	assert.ok(monitor, 'the monitor is imported');
+	assert.equal(monitor.headers.safe, 'yes', 'the benign header survives');
+	assert.equal(monitor.headers.isAdmin, undefined);
+	assert.notEqual(Object.getPrototypeOf(monitor.headers), poison, 'prototype chain untouched');
+	assert.notEqual(Object.getPrototypeOf({}).isAdmin, true, 'Object.prototype untouched');
+});
