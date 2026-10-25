@@ -128,7 +128,10 @@ test('POST /api/settings/test reports configured channels', async () => {
 		assert.equal(body.ok, true);
 		assert.equal(body.channels.telegram, true);
 		assert.equal(calls.length, 1);
-		assert.match(calls[0].url, /api\.telegram\.org/);
+		// Assert on the parsed URL, not a bare substring: /api\.telegram\.org/
+		// can also match an impostor like https://evil.test/?x=api.telegram.org
+		// (CodeQL js/regex/missing-regexp-anchor). Parse and compare the host.
+		assert.equal(new URL(calls[0].url).host, 'api.telegram.org');
 		assert.match(JSON.parse(calls[0].options.body).text, /test/i);
 	} finally {
 		[process.env.TELEGRAM_BOT_TOKEN, process.env.TELEGRAM_CHAT_ID] = savedTelegram;
