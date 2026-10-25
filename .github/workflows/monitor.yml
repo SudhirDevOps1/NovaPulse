@@ -266,7 +266,14 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     concurrency:
-      group: pages-deploy
+      # Renamed from `pages-deploy` (2026-10-25): the original group never
+      # released its slot - every deploy needed from 06:17 UTC onward sat
+      # pending for hours (runs 40173517074 deploy job from 07:43,
+      # 40175081958, 40175652838), while cancel and rerun of every holder
+      # had no effect, so the group was permanently wedged. A fresh group
+      # name sidesteps the zombie slot; behaviour is unchanged:
+      # one deploy at a time, never cancelled midway.
+      group: pages-deploy-v2
       cancel-in-progress: false
     steps:
       - name: Checkout
