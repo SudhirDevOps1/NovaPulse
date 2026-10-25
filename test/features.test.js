@@ -62,7 +62,20 @@ test('?tag= filters the monitor list', async () => {
 
 test('?tag= filters the fleet analytics', async () => {
 	await createMonitor('Tagged SLA', 'https://example.com/sla', ['gold']);
-	const all = await (await fetch(`${base}/api/analytics`)).json();
+	// POST /api/monitors fires one immediate probe (server.js routes create
+	// through scheduler.run). Fetching the two analytics snapshots before
+	// that probe lands made the checks count differ between them and flaked
+	// the strictEqual non-deterministically (Node 22, runs 40177925137 and
+	// 40178216456). Wait until the single create-probe has recorded its
+	// check - nothing else schedules in test mode - then the two snapshots
+	// are guaranteed to share one check set.
+	let all = await (await fetch(`${base}/api/analytics`)).json();
+	for (let i = 0; i < 25 && all.checks === 0; i++) {
+		await new Promise((resolve) => {
+			setTimeout(resolve, 200);
+		});
+		all = await (await fetch(`${base}/api/analytics`)).json();
+	}
 	const tagged = await (await fetch(`${base}/api/analytics?tag=gold`)).json();
 	assert.equal(tagged.checks, all.checks); // same single monitor either way
 	assert.equal(typeof tagged.series, 'object');
