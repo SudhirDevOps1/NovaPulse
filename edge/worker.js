@@ -23,6 +23,29 @@ function generateScreenshotUrl(rawUrl) {
 	return null;
 }
 
+// The edge HTTP gateway is public (CORS id: *), but `D1Adapter.list()` returns
+// raw rows and probe headers routinely carry `Authorization: …`. Mirror the
+// masking `server.js` does via publicMonitor / the incidents endpoint: strip
+// the secret fields from *responses* while the scheduled() probe path keeps
+// using the full row untouched.
+function publicMonitor(monitor) {
+	const payload = { ...monitor };
+	delete payload.headers;
+	if (payload.lastCheck) {
+		const cleanCheck = { ...payload.lastCheck };
+		delete cleanCheck.responseSnippet;
+		delete cleanCheck.responseHeaders;
+		payload.lastCheck = cleanCheck;
+	}
+	return payload;
+}
+
+function publicIncident(incident) {
+	const payload = { ...incident };
+	delete payload.responseSnippet;
+	return payload;
+}
+
 async function probeTarget(monitor) {
 	const startedAt = Date.now();
 	const timeoutMs = monitor.timeoutMs || 10000;
@@ -237,12 +260,12 @@ export default {
 		}
 
 		if (url.pathname === '/api/monitors' && request.method === 'GET') {
-			const monitors = db ? await db.list() : [];
+			const monitors = db ? (await db.list()).map(publicMonitor) : [];
 			return new Response(JSON.stringify(monitors), { headers: corsHeaders });
 		}
 
 		if (url.pathname === '/api/incidents' && request.method === 'GET') {
-			const incidents = db ? await db.incidents(50) : [];
+			const incidents = db ? (await db.incidents(50)).map(publicIncident) : [];
 			return new Response(JSON.stringify(incidents), { headers: corsHeaders });
 		}
 

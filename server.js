@@ -12,7 +12,7 @@ const { createScheduler, handlePushPing, checkerEvents } = require('./lib/checke
 const { parseTcpTarget, isPrivateHost, allowPrivateTargets } = require('./lib/probe');
 const analytics = require('./lib/analytics');
 const { badgeSvg } = require('./lib/badge');
-const { channelStatus } = require('./lib/notify');
+const { notify, channelStatus } = require('./lib/notify');
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -187,6 +187,31 @@ function publicMonitor(monitor) {
 function requestedRange(query) {
 	const range = typeof query.range === 'string' ? query.range : '24h';
 	return ['24h', '7d', '30d'].includes(range) ? range : '24h';
+}
+
+/** `?tag=prod` → filter one or many monitors to those carrying the tag. */
+function tagFilter(query) {
+	const tag = typeof query.tag === 'string' ? query.tag.trim() : '';
+	if (!tag) return null;
+	return (monitors) => monitors.filter((m) => Array.isArray(m.tags) && m.tags.includes(tag));
+}
+
+/** XML text node / attribute escape — monitor names are user-supplied. */
+function xmlEscape(value) {
+	return String(value ?? '')
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&apos;');
+}
+
+/** Prometheus label-value escape (backslash, quotes, newlines only). */
+function metricLabel(value) {
+	return String(value ?? '')
+		.replace(/\\/g, '\\\\')
+		.replace(/"/g, '\\"')
+		.replace(/\n/g, '\\n');
 }
 
 function securityHeaders(req, res, next) {
@@ -397,12 +422,14 @@ function createApp() {
 	});
 
 	app.get('/api/analytics', (req, res) => {
+		const filter = tagFilter(req.query);
+		const source = filter ? filter(store.list()) : store.list();
 		res.json({
-			...analytics.summary(store.list(), requestedRange(req.query)),
-			days: analytics.dayBuckets(store.list(), 30),
+			...analytics.summary(source, requestedRange(req.query)),
+			days: analytics.dayBuckets(source, 30),
 			sla: analytics.slaReport({
 				monitor: null,
-				monitors: store.list(),
+				monitors: source,
 				incidents: store.incidents(500),
 			}),
 		});
@@ -410,8 +437,9 @@ function createApp() {
 
 	app.get('/api/monitors', (req, res) => {
 		const order = { down: 0, unknown: 1, up: 2 };
-		const monitors = store
-			.list()
+		const filter = tagFilter(req.query);
+		const source = filter ? filter(store.list()) : store.list();
+		const monitors = source
 			.map((m) => publicMonitor(m))
 			.sort((a, b) => (order[a.status] ?? 3) - (order[b.status] ?? 3) || a.name.localeCompare(b.name));
 		res.json(monitors);
@@ -560,6 +588,96 @@ function createApp() {
 	app.patch('/api/settings', (req, res) => {
 		const updated = store.updateSettings(req.body || {});
 		res.json({ ...updated, alerts: channelStatus() });
+	});
+
+	// Fire a test alert on every configured channel so operators can verify the
+	// wiring from Settings without waiting for a real outage. `notify` never
+	// throws — failures are logged per channel and device-identifiable there.
+	app.post('/api/settings/test', async (req, res, next) => {
+		try {
+			await notify(`🧪 NovaPulse test alert — if you can read this, the ${Object.entries(channelStatus()).filter(([, on]) => on).map(([c]) => c).join(', ') || 'no'} channel(s) are wired up.`, {
+				event: 'info',
+				title: 'Test alert',
+			});
+			res.json({ ok: true, channels: channelStatus() });
+		} catch (error) {
+			next(error);
+		}
+	});
+
+	// Prometheus/OpenMetrics text exposition — screens into Grafana etc. without
+	// a scrape-side converter. Labels escape per the exposition spec (\, ", \n).
+	app.get('/api/metrics', (req, res) => {
+		const monitors = store.list();
+		const lines = [];
+		const stats = store.stats();
+		const label = (name) => `monitor_id="${metricLabel(name)}"`;
+
+		lines.push('# TYPE novapulse_monitors gauge');
+		lines.push(`novapulse_monitors ${monitors.length}`);
+		lines.push('# TYPE novapulse_monitors_up gauge');
+		lines.push(`novapulse_monitors_up ${stats.totals.up}`);
+		lines.push('# TYPE novapulse_monitors_down gauge');
+		lines.push(`novapulse_monitors_down ${stats.totals.down}`);
+		lines.push('# TYPE novapulse_monitors_degraded gauge');
+		lines.push(`novapulse_monitors_degraded ${stats.totals.degraded}`);
+		lines.push('# TYPE novapulse_monitors_paused gauge');
+		lines.push(`novapulse_monitors_paused ${stats.totals.paused}`);
+		lines.push('# TYPE novapulse_checks_24h_total gauge');
+		lines.push(`novapulse_checks_24h_total ${stats.checks24h}`);
+		lines.push('# TYPE novapulse_uptime_24h_ratio gauge');
+		lines.push(`novapulse_uptime_24h_ratio ${stats.uptime24h === null ? 'NaN' : stats.uptime24h / 100}`);
+		lines.push('# TYPE novapulse_avg_response_24h_ms gauge');
+		lines.push(`novapulse_avg_response_24h_ms ${stats.avgResponse24h ?? 'NaN'}`);
+		lines.push('# TYPE novapulse_incidents_24h_total gauge');
+		lines.push(`novapulse_incidents_24h_total ${stats.incidents24h}`);
+
+		lines.push('# TYPE novapulse_monitor_up gauge');
+		for (const monitor of monitors) {
+			const up = !monitor.enabled || monitor.status === 'unknown' ? 'NaN' : monitor.status === 'down' ? 0 : 1;
+			lines.push(`novapulse_monitor_up{${label(monitor.id)}, name="${metricLabel(monitor.name)}"} ${up}`);
+		}
+		lines.push('# TYPE novapulse_monitor_last_ms gauge');
+		for (const monitor of monitors) {
+			const ms = monitor.lastCheck && Number.isFinite(monitor.lastCheck.ms) ? monitor.lastCheck.ms : 'NaN';
+			lines.push(`novapulse_monitor_last_ms{${label(monitor.id)}, name="${metricLabel(monitor.name)}"} ${ms}`);
+		}
+		lines.push('# TYPE novapulse_monitor_uptime_24h_ratio gauge');
+		for (const monitor of monitors) {
+			const ratio = store.uptime24h(monitor);
+			lines.push(
+				`novapulse_monitor_uptime_24h_ratio{${label(monitor.id)}, name="${metricLabel(monitor.name)}"} ${ratio === null ? 'NaN' : ratio / 100}`,
+			);
+		}
+
+		res.setHeader('Content-Type', 'text/plain; version=1.0.0; charset=utf-8');
+		res.setHeader('Cache-Control', 'no-cache');
+		res.send(`${lines.join('\n')}\n`);
+	});
+
+	// RSS 2.0 feed of recent incidents — drop the URL into a reader/wiki and get
+	// outage notifications without any Node-era webhooks.
+	app.get('/api/feed.xml', (req, res) => {
+		const limit = Math.max(1, Math.min(Number(req.query.limit) || 50, 200));
+		const incidents = store.incidents(limit);
+		const items = incidents
+			.map(
+				(incident) => [
+					'<item>',
+					`<title>${xmlEscape(`${incident.type === 'down' ? '🔴 DOWN' : '🟢 UP'}: ${incident.name}`)}</title>`,
+					`<description>${xmlEscape(incident.reason || incident.type)}</description>`,
+					`<guid isPermaLink="false">${xmlEscape(incident.id)}</guid>`,
+					`<category>${xmlEscape(incident.type)}</category>`,
+					`<pubDate>${new Date(incident.at).toUTCString()}</pubDate>`,
+					'</item>',
+				].join('\n'),
+			)
+			.join('\n');
+		res.setHeader('Content-Type', 'application/rss+xml; charset=utf-8');
+		res.setHeader('Cache-Control', 'no-cache');
+		res.send(
+			`<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0">\n<channel>\n<title>NovaPulse incidents</title>\n<link>${xmlEscape('/')}</link>\n<description>Monitor outage and recovery events</description>\n${items}\n</channel>\n</rss>\n`,
+		);
 	});
 
 	// ---- public status projection (no auth, no secrets) ----
