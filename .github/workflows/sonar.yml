@@ -154,7 +154,7 @@ jobs:
 
       - name: Upload Sonar artefacts
         if: always() && steps.config.outputs.configured == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sonar-report
           path: sonar-quality-gate.json
