@@ -13,6 +13,15 @@
 <!-- release-please-block -->
 <!-- release-please-unblock -->
 
+## [2026.1.5](https://github.com/SudhirDevOps1/NovaPulse/compare/v2026.1.4...v2026.1.5) (2026-10-28)
+
+
+### 📖 Documentation
+
+* sync .ai/ register after the repo-ops day (ADR-0009, BUG-2026-0014) ([554b383](https://github.com/SudhirDevOps1/NovaPulse/commit/554b383cd22593ee131206ebf4484ba8a055fca9))
+* sync README and docs/ with the release split and measured counts ([9b3d4f9](https://github.com/SudhirDevOps1/NovaPulse/commit/9b3d4f9dca14291a7c085e7d86f85b223bad5b4a))
+* sync the release split and measured counts into the docs ([f860261](https://github.com/SudhirDevOps1/NovaPulse/commit/f860261c78fd49edd02548d12e0d45f692f091cb))
+
 ## [2026.1.4](https://github.com/SudhirDevOps1/NovaPulse/compare/v2026.1.3...v2026.1.4) (2026-10-25)
 
 
