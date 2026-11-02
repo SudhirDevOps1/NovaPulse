@@ -47,7 +47,7 @@ jobs:
 
       # Version is read from the "packageManager" field in package.json.
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Setup Node.js ${{ matrix.node }}
         uses: actions/setup-node@v7
@@ -102,7 +102,7 @@ jobs:
           fetch-depth: 0 # full history so the PR base commit is available
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
