@@ -15,6 +15,7 @@ const CHANNEL_ENV = [
 	'SLACK_WEBHOOK_URL',
 	'NTFY_URL',
 	'NTFY_TOKEN',
+	'STOAT_WEBHOOK_URL',
 	'WEBHOOK_URL',
 	'WEBHOOK_SECRET',
 ];
@@ -88,4 +89,27 @@ test('a failing channel never blocks the configured ones', async () => {
 	await notify('🟢 UP: My site', { event: 'up' });
 
 	assert.deepEqual(delivered, ['https://hooks.slack.com/services/T/B/X']);
+});
+
+test('notify posts markdown payload to Stoat webhook', async () => {
+	clearChannels();
+	const calls = [];
+	global.fetch = /** @type {any} */ (async (url, options) => {
+		calls.push({ url, options });
+		return { ok: true, status: 200 };
+	});
+	process.env.STOAT_WEBHOOK_URL = 'https://api.stoat.chat/api/v1/channels/c123/webhooks';
+
+	await notify('🔴 DOWN: Payment Service', {
+		event: 'down',
+		title: 'Monitor down',
+		monitor: { name: 'Payment Service', url: 'https://pay.example.com' },
+	});
+
+	assert.equal(calls.length, 1);
+	assert.equal(calls[0].url, 'https://api.stoat.chat/api/v1/channels/c123/webhooks');
+	assert.equal(calls[0].options.headers['content-type'], 'application/json');
+	const payload = JSON.parse(calls[0].options.body);
+	assert.equal(payload.name, 'NovaPulse Alert');
+	assert.match(payload.content, /Payment Service/);
 });

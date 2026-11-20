@@ -362,8 +362,13 @@ All settings configure via environment variables. The application boots with sen
 | `SLACK_WEBHOOK_URL`  | – | Slack incoming webhook URL for BlockKit notifications. |
 | `NTFY_URL` | – | ntfy topic URL (e.g., `https://ntfy.sh/my-alerts`). |
 | `NTFY_TOKEN` | – | Optional bearer token for protected ntfy topics. |
+| `STOAT_WEBHOOK_URL` | – | Stoat / Revolt channel webhook URL for instant incident alerts. |
 | `WEBHOOK_URL` | – | Generic HTTP POST webhook URL. |
 | `WEBHOOK_SECRET` | – | Secret token transmitted in the `x-novapulse-secret` header. |
+| `NEON_DATABASE_URL` | – | Serverless PostgreSQL connection string (e.g. from neon.tech). Zero-driver cloud persistence. |
+| `TURSO_DATABASE_URL`| – | Remote SQLite / LibSQL database URL (from turso.tech). |
+| `TURSO_AUTH_TOKEN`  | – | Authentication token for Turso SQLite. |
+| `GITHUB_STORAGE`    | – | Set `true` with `GITHUB_TOKEN` and `GITHUB_REPOSITORY` to auto-sync state to GitHub repo. |
 | `ALERT_ON_DEGRADED` | – | Set `1` to dispatch alerts when a monitor crosses its `warnMs` threshold. |
 | `ALERT_COOLDOWN_MS` | `300000` | Minimum gap between two alerts of the same kind for the same monitor. Damps a flapping endpoint from emitting a DOWN/UP pair on every check. `0` disables throttling. |
 | `SSL_WARN_DAYS` | `14` | Advance notification threshold in days for expiring TLS certificates. |

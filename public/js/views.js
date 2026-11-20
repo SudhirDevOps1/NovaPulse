@@ -1125,6 +1125,7 @@ export function renderSettings({ state, ctx, health }) {
 		['telegram', 'Telegram bot', 'TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID'],
 		['discord', 'Discord webhook', 'DISCORD_WEBHOOK_URL'],
 		['ntfy', 'ntfy.sh push (phones)', 'NTFY_URL (+ NTFY_TOKEN)'],
+		['stoat', 'Stoat chat webhook', 'STOAT_WEBHOOK_URL'],
 		['webhook', 'Generic JSON webhook', 'WEBHOOK_URL (+ WEBHOOK_SECRET)'],
 	];
 	const alerts = health?.alerts || { telegram: Boolean(health?.telegram) };
