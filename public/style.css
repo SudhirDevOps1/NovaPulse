@@ -3812,4 +3812,197 @@ kbd {
 	}
 }
 
+/* ==========================================================================
+   Full-Screen Authentication Portal (body.auth-mode)
+   ========================================================================== */
+
+body.auth-mode .sidebar,
+body.auth-mode .topbar {
+	display: none !important;
+}
+
+body.auth-mode .shell {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 100vh;
+	min-height: 100dvh;
+	padding: var(--sp-4);
+	grid-template-columns: 1fr;
+	background:
+		radial-gradient(circle at 50% 20%, rgba(6, 182, 212, 0.08) 0%, transparent 60%),
+		radial-gradient(circle at 80% 80%, rgba(99, 102, 241, 0.04) 0%, transparent 50%),
+		var(--bg);
+}
+
+body.auth-mode .main {
+	width: 100%;
+	max-width: 440px;
+	margin: 0 auto;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+body.auth-mode .view {
+	width: 100%;
+	padding: 0;
+}
+
+.auth-portal-card {
+	width: 100%;
+	background: var(--surface);
+	border: 1px solid var(--line);
+	border-radius: var(--r-lg);
+	box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+	padding: 2.25rem 2rem;
+	position: relative;
+	overflow: hidden;
+}
+
+.auth-portal-card::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 3px;
+	background: linear-gradient(90deg, var(--brand), #8b5cf6, var(--brand));
+	background-size: 200% 100%;
+	animation: auth-gradient-pan 4s linear infinite;
+}
+
+@keyframes auth-gradient-pan {
+	0% { background-position: 0% 50%; }
+	100% { background-position: 200% 50%; }
+}
+
+.auth-header {
+	text-align: center;
+	margin-bottom: 2rem;
+}
+
+.auth-logo-wrap {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 52px;
+	height: 52px;
+	border-radius: 14px;
+	background: color-mix(in srgb, var(--brand) 12%, transparent);
+	border: 1px solid color-mix(in srgb, var(--brand) 30%, transparent);
+	color: var(--brand);
+	margin-bottom: 1rem;
+	box-shadow: 0 0 24px color-mix(in srgb, var(--brand) 25%, transparent);
+}
+
+.auth-badge {
+	display: inline-block;
+	font-size: 0.65rem;
+	font-weight: 700;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	padding: 0.2rem 0.55rem;
+	border-radius: 9999px;
+	background: color-mix(in srgb, var(--brand) 15%, transparent);
+	color: var(--brand);
+	border: 1px solid color-mix(in srgb, var(--brand) 25%, transparent);
+	margin-bottom: 0.5rem;
+}
+
+.auth-title {
+	font-size: 1.35rem;
+	font-weight: 700;
+	margin: 0 0 0.4rem 0;
+	letter-spacing: -0.02em;
+	color: var(--fg);
+}
+
+.auth-desc {
+	font-size: 0.85rem;
+	color: var(--muted);
+	margin: 0;
+	line-height: 1.5;
+}
+
+.auth-input-group {
+	position: relative;
+	display: flex;
+	align-items: center;
+	width: 100%;
+}
+
+.auth-input-group .input {
+	padding-right: 2.75rem;
+	width: 100%;
+}
+
+.auth-pass-toggle {
+	position: absolute;
+	right: 0.5rem;
+	top: 50%;
+	transform: translateY(-50%);
+	background: transparent;
+	border: none;
+	color: var(--muted);
+	cursor: pointer;
+	padding: 0.4rem;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: var(--r-sm);
+	transition: color 0.15s ease;
+}
+
+.auth-pass-toggle:hover {
+	color: var(--fg);
+}
+
+.auth-actions-foot {
+	margin-top: 1.75rem;
+	padding-top: 1.25rem;
+	border-top: 1px solid var(--line);
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+	align-items: center;
+}
+
+.auth-status-link {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	font-size: 0.85rem;
+	color: var(--brand);
+	text-decoration: none;
+	font-weight: 500;
+	transition: opacity 0.15s ease;
+}
+
+.auth-status-link:hover {
+	opacity: 0.85;
+	text-decoration: underline;
+}
+
+.auth-security-note {
+	font-size: 0.75rem;
+	color: var(--muted);
+	display: flex;
+	align-items: center;
+	gap: 0.35rem;
+	opacity: 0.75;
+}
+
+@keyframes auth-shake {
+	0%, 100% { transform: translateX(0); }
+	20%, 60% { transform: translateX(-6px); }
+	40%, 80% { transform: translateX(6px); }
+}
+
+.auth-shake {
+	animation: auth-shake 0.4s ease-in-out;
+}
+
+
 
