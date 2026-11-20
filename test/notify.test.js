@@ -6,7 +6,7 @@ process.env.LOG_LEVEL = 'silent';
 const { test, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { notify, channelStatus } = require('../lib/notify');
+const { notify, channelStatus, testAlerts } = require('../lib/notify');
 
 const CHANNEL_ENV = [
 	'TELEGRAM_BOT_TOKEN',
@@ -113,3 +113,34 @@ test('notify posts markdown payload to Stoat webhook', async () => {
 	assert.equal(payload.name, 'NovaPulse Alert');
 	assert.match(payload.content, /Payment Service/);
 });
+
+test('testAlerts tests individual channels and all configured channels', async () => {
+	clearChannels();
+	const calls = [];
+	global.fetch = /** @type {any} */ (async (url, options) => {
+		calls.push({ url, options });
+		return { ok: true, status: 200 };
+	});
+
+	process.env.STOAT_WEBHOOK_URL = 'https://api.stoat.chat/webhooks/test';
+	process.env.DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/123/xyz';
+
+	// Test specific channel: stoat
+	const stoatRes = await testAlerts('stoat');
+	assert.equal(stoatRes.length, 1);
+	assert.equal(stoatRes[0].channel, 'stoat');
+	assert.equal(stoatRes[0].configured, true);
+	assert.equal(stoatRes[0].ok, true);
+
+	// Test all channels
+	const allRes = await testAlerts('all');
+	assert.equal(allRes.length, 6);
+	const configured = allRes.filter((r) => r.configured);
+	assert.equal(configured.length, 2);
+	assert.ok(configured.every((r) => r.ok));
+
+	const unconfigured = allRes.filter((r) => !r.configured);
+	assert.equal(unconfigured.length, 4);
+	assert.ok(unconfigured.every((r) => !r.ok));
+});
+

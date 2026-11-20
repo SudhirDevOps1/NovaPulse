@@ -4004,5 +4004,123 @@ body.auth-mode .view {
 	animation: auth-shake 0.4s ease-in-out;
 }
 
+/* ==========================================================================
+   ALTCHA Proof-of-Work Anti-Bot Widget
+   ========================================================================== */
+
+.altcha-box {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0.85rem 1rem;
+	background: color-mix(in srgb, var(--surface) 60%, var(--bg));
+	border: 1px solid var(--line);
+	border-radius: var(--r-md);
+	cursor: pointer;
+	user-select: none;
+	transition: all 0.2s ease;
+	margin-bottom: 1.25rem;
+}
+
+.altcha-box:hover {
+	border-color: color-mix(in srgb, var(--brand) 40%, var(--line));
+	background: var(--surface-2);
+}
+
+.altcha-box:focus-visible {
+	outline: 2px solid var(--brand);
+	outline-offset: 2px;
+}
+
+.altcha-left {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+}
+
+.altcha-checkbox {
+	width: 24px;
+	height: 24px;
+	border: 2px solid var(--line-strong, #3b4252);
+	border-radius: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--bg);
+	transition: all 0.2s ease;
+	color: #fff;
+	flex-shrink: 0;
+}
+
+.altcha-box:hover .altcha-checkbox {
+	border-color: var(--brand);
+}
+
+.altcha-box.verifying .altcha-checkbox {
+	border-color: var(--brand);
+	background: transparent;
+}
+
+.altcha-box.verified .altcha-checkbox {
+	background: var(--up, #10b981);
+	border-color: var(--up, #10b981);
+	color: #fff;
+}
+
+.altcha-box.error .altcha-checkbox {
+	background: var(--down, #ef4444);
+	border-color: var(--down, #ef4444);
+	font-weight: bold;
+	color: #fff;
+}
+
+.altcha-label-text {
+	font-size: 0.875rem;
+	font-weight: 500;
+	color: var(--fg);
+}
+
+.altcha-box.verified .altcha-label-text {
+	color: var(--up, #10b981);
+}
+
+.altcha-box.error .altcha-label-text {
+	color: var(--down, #ef4444);
+}
+
+.altcha-right {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 2px;
+}
+
+.altcha-logo-icon {
+	color: var(--muted);
+	display: flex;
+	align-items: center;
+}
+
+.altcha-brand-sub {
+	font-size: 0.65rem;
+	color: var(--muted);
+	letter-spacing: 0.02em;
+}
+
+.altcha-spinner {
+	width: 14px;
+	height: 14px;
+	border: 2px solid color-mix(in srgb, var(--brand) 30%, transparent);
+	border-top-color: var(--brand);
+	border-radius: 50%;
+	animation: altcha-spin 0.6s linear infinite;
+	display: inline-block;
+}
+
+@keyframes altcha-spin {
+	to { transform: rotate(360deg); }
+}
+
+
 
 

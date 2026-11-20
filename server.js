@@ -12,7 +12,8 @@ const { createScheduler, handlePushPing, checkerEvents } = require('./lib/checke
 const { parseTcpTarget, isPrivateHost, allowPrivateTargets } = require('./lib/probe');
 const analytics = require('./lib/analytics');
 const { badgeSvg } = require('./lib/badge');
-const { notify, channelStatus } = require('./lib/notify');
+const { channelStatus, testAlerts } = require('./lib/notify');
+const altcha = require('./lib/altcha');
 const auth = require('./lib/auth');
 const { requireAuth, authStatus, verifyCredentials, createSessionToken } = auth;
 
@@ -422,8 +423,18 @@ function createApp() {
 
 	// ---- Authentication Endpoints ----
 
+	app.get('/api/auth/altcha', (req, res) => {
+		res.json(altcha.createChallenge());
+	});
+
 	app.post('/api/auth/login', (req, res) => {
-		const { username, password } = req.body || {};
+		const { username, password, altcha: altchaPayload } = req.body || {};
+		const isAltchaRequired = process.env.NODE_ENV !== 'test' && (process.env.ALTCHA_ENABLED === 'true' || process.env.NODE_ENV === 'production');
+		if (isAltchaRequired || altchaPayload) {
+			if (!altchaPayload || !altcha.verifySolution(altchaPayload)) {
+				return res.status(400).json({ error: 'Proof-of-work (ALTCHA) verification failed. Please complete the "I\'m not a robot" challenge.' });
+			}
+		}
 		if (!verifyCredentials(username, password)) {
 			return res.status(401).json({ error: 'Invalid username or password' });
 		}
@@ -442,7 +453,9 @@ function createApp() {
 	});
 
 	app.get('/api/auth/me', (req, res) => {
-		res.json(authStatus(req));
+		const status = authStatus(req);
+		const altchaRequired = process.env.NODE_ENV !== 'test' && (process.env.ALTCHA_ENABLED === 'true' || process.env.NODE_ENV === 'production');
+		res.json({ ...status, altchaRequired });
 	});
 
 	// Dead Man's Switch / Cron Heartbeat push ping endpoint
@@ -636,16 +649,17 @@ function createApp() {
 		res.json({ ...updated, alerts: channelStatus() });
 	});
 
-	// Fire a test alert on every configured channel so operators can verify the
-	// wiring from Settings without waiting for a real outage. `notify` never
-	// throws — failures are logged per channel and device-identifiable there.
+	// Fire a test alert on configured channels so operators can verify the
+	// wiring from Settings. Supports testing all channels or a targeted channel.
 	app.post('/api/settings/test', requireAuth, async (req, res, next) => {
 		try {
-			await notify(`🧪 NovaPulse test alert — if you can read this, the ${Object.entries(channelStatus()).filter(([, on]) => on).map(([c]) => c).join(', ') || 'no'} channel(s) are wired up.`, {
-				event: 'info',
-				title: 'Test alert',
+			const targetChannel = req.body?.channel || 'all';
+			const results = await testAlerts(targetChannel);
+			res.json({
+				ok: true,
+				channels: channelStatus(),
+				results,
 			});
-			res.json({ ok: true, channels: channelStatus() });
 		} catch (error) {
 			next(error);
 		}
