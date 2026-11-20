@@ -1,7 +1,7 @@
 import { api, isStatic } from './api.js';
 import { icon, iconEl } from './icons.js';
 import { h, fmt, toast, confirmDialog, openModal, closeActiveOverlay } from './ui.js';
-import { renderOverview, renderIncidents, renderSettings, openMonitorForm } from './views.js';
+import { renderOverview, renderIncidents, renderSettings, openMonitorForm, renderLogin } from './views.js';
 import { renderMonitorList, openMonitorDrawer } from './monitors.js';
 
 const VIEWS = {
@@ -9,10 +9,12 @@ const VIEWS = {
 	monitors: { title: 'Monitors', sub: 'Every endpoint and its current state' },
 	incidents: { title: 'Incidents', sub: 'Downtime and recovery timeline' },
 	settings: { title: 'Settings', sub: 'Appearance, alerts and data' },
+	login: { title: 'Admin Login', sub: 'Sign in to access cluster control & monitors' },
 };
 
 const state = {
 	route: 'overview',
+	auth: { authRequired: false, authenticated: true, user: null },
 	monitors: [],
 	incidents: [],
 	stats: null,
@@ -406,13 +408,14 @@ const ctx = {
 };
 
 function routeFromHash() {
+	if (state.auth.authRequired && !state.auth.authenticated) return 'login';
 	const hash = location.hash.replace(/^#\/?/, '').split('?')[0];
-	return VIEWS[hash] ? hash : 'overview';
+	return VIEWS[hash] && hash !== 'login' ? hash : 'overview';
 }
 
 function render() {
 	const view = document.getElementById('view');
-	const meta = VIEWS[state.route];
+	const meta = VIEWS[state.route] || VIEWS.overview;
 
 	document.getElementById('page-title').textContent = meta.title;
 	document.getElementById('page-sub').textContent = meta.sub;
@@ -427,7 +430,31 @@ function render() {
 	if (state.loading) return; // initial skeleton already in the markup
 
 	let content;
-	if (state.error && !state.monitors.length) {
+	if (state.route === 'login') {
+		content = renderLogin({
+			_ctx: ctx,
+			onLogin: async (res) => {
+				state.auth.authenticated = true;
+				state.auth.user = res.user;
+				updateAuthUI();
+				state.route = 'overview';
+				location.hash = '#/overview';
+				state.loading = true;
+				render();
+				try {
+					await loadData();
+					state.loading = false;
+					render();
+					startPolling();
+					connectSse();
+				} catch (error) {
+					state.loading = false;
+					state.error = error.message;
+					render();
+				}
+			},
+		});
+	} else if (state.error && !state.monitors.length) {
 		content = h('div', { class: 'banner error', role: 'alert' }, [
 			iconEl('alert'),
 			h('span', { text: `Cannot reach the API: ${state.error}` }),
@@ -837,9 +864,93 @@ function connectSse() {
 	}
 }
 
+function updateAuthUI() {
+	const newMonitorBtn = document.getElementById('new-monitor-btn');
+	const navLinks = /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.nav a'));
+	const sidebarFoot = document.querySelector('.sidebar-foot');
+	let authBox = document.getElementById('auth-status-box');
+
+	if (!state.auth.authRequired) {
+		if (authBox) authBox.remove();
+		return;
+	}
+
+	if (!state.auth.authenticated) {
+		if (newMonitorBtn) newMonitorBtn.style.display = 'none';
+		navLinks.forEach((a) => {
+			a.style.pointerEvents = 'none';
+			a.style.opacity = '0.5';
+		});
+		if (authBox) authBox.remove();
+	} else {
+		if (newMonitorBtn && !isStatic) newMonitorBtn.style.display = '';
+		navLinks.forEach((a) => {
+			a.style.pointerEvents = '';
+			a.style.opacity = '';
+		});
+		if (!authBox && sidebarFoot) {
+			authBox = h('div', { id: 'auth-status-box', class: 'foot-row', style: 'padding: 0.5rem 0; border-top: 1px solid var(--line); margin-top: 0.5rem; display: flex; justify-content: space-between; align-items: center;' }, [
+				h('span', { class: 'text-xs muted', style: 'display:flex;align-items:center;gap:0.3rem;' }, [
+					h('i', { class: 'dot', style: 'background:var(--brand);width:6px;height:6px;border-radius:50%;display:inline-block;' }),
+					h('span', { text: state.auth.user || 'admin' }),
+				]),
+				h('button', {
+					class: 'btn btn-xs btn-outline',
+					type: 'button',
+					text: 'Sign out',
+					onclick: async () => {
+						await api.logout();
+						try { localStorage.removeItem('novapulse.token'); } catch {
+							// ignore
+						}
+						state.auth.authenticated = false;
+						state.monitors = [];
+						state.stats = null;
+						state.route = 'login';
+						location.hash = '#/login';
+						updateAuthUI();
+						render();
+						toast('Signed out', { type: 'info' });
+					},
+				}),
+			]);
+			sidebarFoot.prepend(authBox);
+		}
+	}
+}
+
+window.addEventListener('novapulse:unauthorized', () => {
+	if (state.auth.authRequired) {
+		state.auth.authenticated = false;
+		state.monitors = [];
+		state.stats = null;
+		state.route = 'login';
+		location.hash = '#/login';
+		updateAuthUI();
+		render();
+		toast('Session expired. Please log in.', { type: 'error' });
+	}
+});
+
 async function boot() {
 	applyTheme();
 	wireChrome();
+
+	// Check authentication status first
+	try {
+		state.auth = await api.authMe();
+	} catch {
+		state.auth = { authRequired: false, authenticated: true, user: null };
+	}
+	updateAuthUI();
+
+	if (state.auth.authRequired && !state.auth.authenticated) {
+		state.route = 'login';
+		state.loading = false;
+		render();
+		return;
+	}
+
 	state.route = routeFromHash();
 
 	try {

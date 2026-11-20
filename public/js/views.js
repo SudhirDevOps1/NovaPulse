@@ -689,13 +689,42 @@ export function buildMonitorBody(monitor, ctx) {
 			: null,
 		monitor.type === 'push'
 			? h('div', { class: 'drawer-section' }, [
-					h('h3', { text: 'Heartbeat Ping Command' }),
-					h('p', { class: 'hint', text: 'Ping this endpoint on your schedule to keep this monitor UP:' }),
+					h('div', { class: 'drawer-section-head' }, [
+						h('h3', { text: 'Push Heartbeat (Dead Man\'s Switch)' }),
+						h('span', { class: 'chip chip-sm text-xs', text: `grace: ${monitor.graceSec || 60}s` }),
+					]),
+					h('p', { class: 'hint', text: 'Ping this endpoint from your cron job or background worker to keep this monitor UP:' }),
 					h('pre', {
 						class: 'code-snippet',
 						style: 'background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 6px; padding: 10px; font-size: 12px; overflow-x: auto; font-family: monospace; user-select: all;',
-						text: `curl -fsS ${location.origin}/api/ping/${monitor.id}`,
+						text: `curl -fsS --retry 3 "${location.origin}/api/ping/${monitor.id}"`,
 					}),
+					h('div', { style: 'display:flex;gap:0.5rem;margin-top:0.5rem;' }, [
+						h('button', {
+							class: 'btn btn-sm',
+							type: 'button',
+							text: 'Copy curl command',
+							onclick: () => {
+								navigator.clipboard.writeText(`curl -fsS --retry 3 "${location.origin}/api/ping/${monitor.id}"`);
+								toast('Copied curl command to clipboard!', { type: 'success' });
+							},
+						}),
+						h('button', {
+							class: 'btn btn-sm',
+							type: 'button',
+							text: 'Ping now (test)',
+							onclick: async () => {
+								try {
+									const res = await fetch(`/api/ping/${monitor.id}`);
+									const data = await res.json();
+									toast(`Heartbeat received: ${data.name}`, { type: 'success' });
+									if (ctx.onMonitorUpdated) ctx.onMonitorUpdated({ ...monitor, status: 'up', lastPingAt: data.lastPingAt });
+								} catch (err) {
+									toast(`Ping failed: ${err.message}`, { type: 'error' });
+								}
+							},
+						}),
+					]),
 			  ])
 			: null,
 		h('div', { class: 'drawer-section' }, [
@@ -1392,6 +1421,106 @@ function segmented(options, current, onChange) {
 	});
 	buttons.forEach((b) => wrap.append(b));
 	return wrap;
+}
+
+/**
+ * @param {{ _ctx?: any, onLogin?: (res: any) => void }} [props]
+ */
+export function renderLogin({ _ctx, onLogin } = {}) {
+	const userInput = h('input', {
+		class: 'input',
+		type: 'text',
+		name: 'username',
+		placeholder: 'admin or username',
+		autocomplete: 'username',
+		required: true,
+	});
+	userInput.value = 'admin';
+
+	const passInput = h('input', {
+		class: 'input',
+		type: 'password',
+		name: 'password',
+		placeholder: '••••••••••••',
+		autocomplete: 'current-password',
+		required: true,
+	});
+
+	const errorBanner = h('div', { class: 'banner error', style: 'display:none;margin-bottom:1rem;', role: 'alert' });
+	const submitBtn = h('button', {
+		class: 'btn btn-primary',
+		type: 'submit',
+		style: 'width:100%;margin-top:0.75rem;',
+		text: 'Sign In to Cluster',
+	});
+
+	const form = h('form', { novalidate: true }, [
+		errorBanner,
+		h('label', { class: 'field', style: 'margin-bottom:1rem;' }, [
+			h('span', { text: 'Admin Username / Email' }),
+			userInput,
+			h('span', { class: 'hint', text: 'Configured via ADMIN_USER environment variable (default: admin)' }),
+		]),
+		h('label', { class: 'field', style: 'margin-bottom:1.5rem;' }, [
+			h('span', { text: 'Master Password' }),
+			passInput,
+			h('span', { class: 'hint', text: 'Configured via ADMIN_PASSWORD environment variable' }),
+		]),
+		submitBtn,
+	]);
+
+	form.addEventListener('submit', async (e) => {
+		e.preventDefault();
+		errorBanner.style.display = 'none';
+		errorBanner.textContent = '';
+		submitBtn.disabled = true;
+		submitBtn.textContent = 'Verifying credentials…';
+
+		try {
+			const res = await api.login({
+				username: userInput.value.trim(),
+				password: passInput.value,
+			});
+			if (res.token) {
+				try {
+					localStorage.setItem('novapulse.token', res.token);
+				} catch {
+					// ignore
+				}
+			}
+			toast(`Authenticated as ${res.user || 'admin'}`, { type: 'success' });
+			if (onLogin) onLogin(res);
+		} catch (err) {
+			errorBanner.textContent = err.message || 'Invalid username or password';
+			errorBanner.style.display = 'flex';
+			passInput.focus();
+		} finally {
+			submitBtn.disabled = false;
+			submitBtn.textContent = 'Sign In to Cluster';
+		}
+	});
+
+	const card = h('div', { class: 'card', style: 'max-width:440px;margin:3rem auto;padding:2rem;' }, [
+		h('div', { style: 'text-align:center;margin-bottom:1.5rem;' }, [
+			h('div', { class: 'brand-mark', style: 'display:inline-flex;margin-bottom:0.75rem;padding:0.75rem;' }, [
+				iconEl('pulse', 'icon icon-lg'),
+			]),
+			h('h2', { style: 'margin:0 0 0.5rem 0;', text: 'NovaPulse Cluster Access' }),
+			h('p', { class: 'muted', style: 'margin:0;font-size:0.9rem;', text: 'Protected control plane. Enter your credentials to manage monitors, incidents, and cluster settings.' }),
+		]),
+		form,
+		h('div', { style: 'margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--line);text-align:center;' }, [
+			h('a', {
+				href: api.statusPageUrl(),
+				target: '_blank',
+				rel: 'noopener',
+				style: 'color:var(--brand);font-size:0.875rem;text-decoration:none;',
+				text: 'View Public Status Page →',
+			}),
+		]),
+	]);
+
+	return card;
 }
 
 export { emptyState, sectionCard };

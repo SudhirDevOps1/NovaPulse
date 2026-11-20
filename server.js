@@ -13,6 +13,8 @@ const { parseTcpTarget, isPrivateHost, allowPrivateTargets } = require('./lib/pr
 const analytics = require('./lib/analytics');
 const { badgeSvg } = require('./lib/badge');
 const { notify, channelStatus } = require('./lib/notify');
+const auth = require('./lib/auth');
+const { requireAuth, authStatus, verifyCredentials, createSessionToken } = auth;
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -156,6 +158,18 @@ function validateMonitor(body = {}) {
 			const tags = body.tags.filter((tag) => typeof tag === 'string' && tag.trim()).map((tag) => tag.trim().slice(0, 24));
 			if (tags.length > 10) errors.push('at most 10 tags are allowed');
 			else value.tags = [...new Set(tags)];
+		}
+	}
+	if (body.maintenanceUntil !== undefined) {
+		if (body.maintenanceUntil === null || body.maintenanceUntil === '') {
+			value.maintenanceUntil = null;
+		} else {
+			const d = new Date(body.maintenanceUntil);
+			if (Number.isNaN(d.getTime())) {
+				errors.push('maintenanceUntil must be a valid ISO date');
+			} else {
+				value.maintenanceUntil = d.toISOString();
+			}
 		}
 	}
 
@@ -386,6 +400,12 @@ function createApp() {
 
 	// Real-time Server-Sent Events stream for instant dashboard & status updates
 	app.get('/api/stream', (req, res) => {
+		if (auth.isAuthRequired()) {
+			const status = authStatus(req);
+			if (!status.authenticated) {
+				return res.status(401).json({ error: 'Authentication required' });
+			}
+		}
 		res.writeHead(200, {
 			'Content-Type': 'text/event-stream',
 			'Cache-Control': 'no-cache, no-transform',
@@ -398,6 +418,31 @@ function createApp() {
 		req.on('close', cleanup);
 		res.on('close', cleanup);
 		res.on('error', cleanup);
+	});
+
+	// ---- Authentication Endpoints ----
+
+	app.post('/api/auth/login', (req, res) => {
+		const { username, password } = req.body || {};
+		if (!verifyCredentials(username, password)) {
+			return res.status(401).json({ error: 'Invalid username or password' });
+		}
+		const user = String(username || auth.getAdminUser()).trim();
+		const token = createSessionToken(user);
+		const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https';
+		res.setHeader('Set-Cookie', [
+			`np_session=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 86400}${isSecure ? '; Secure' : ''}`,
+		]);
+		res.json({ ok: true, token, user });
+	});
+
+	app.post('/api/auth/logout', (req, res) => {
+		res.setHeader('Set-Cookie', ['np_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0']);
+		res.json({ ok: true });
+	});
+
+	app.get('/api/auth/me', (req, res) => {
+		res.json(authStatus(req));
 	});
 
 	// Dead Man's Switch / Cron Heartbeat push ping endpoint
@@ -418,11 +463,11 @@ function createApp() {
 	app.get('/api/push/:id', pingHandler);
 	app.post('/api/push/:id', pingHandler);
 
-	app.get('/api/stats', (req, res) => {
+	app.get('/api/stats', requireAuth, (req, res) => {
 		res.json(store.stats());
 	});
 
-	app.get('/api/analytics', (req, res) => {
+	app.get('/api/analytics', requireAuth, (req, res) => {
 		const filter = tagFilter(req.query);
 		const source = filter ? filter(store.list()) : store.list();
 		res.json({
@@ -436,7 +481,7 @@ function createApp() {
 		});
 	});
 
-	app.get('/api/monitors', (req, res) => {
+	app.get('/api/monitors', requireAuth, (req, res) => {
 		const order = { down: 0, unknown: 1, up: 2 };
 		const filter = tagFilter(req.query);
 		const source = filter ? filter(store.list()) : store.list();
@@ -446,7 +491,7 @@ function createApp() {
 		res.json(monitors);
 	});
 
-	app.post('/api/monitors', (req, res) => {
+	app.post('/api/monitors', requireAuth, (req, res) => {
 		const { errors, value } = validateMonitor(req.body);
 		if (errors.length) return res.status(400).json({ errors });
 
@@ -458,13 +503,13 @@ function createApp() {
 		res.status(201).json(publicMonitor(monitor));
 	});
 
-	app.get('/api/monitors/:id', (req, res) => {
+	app.get('/api/monitors/:id', requireAuth, (req, res) => {
 		const monitor = store.get(req.params.id);
 		if (!monitor) return res.status(404).json({ error: 'Monitor not found' });
 		res.json(publicMonitor(monitor));
 	});
 
-	app.get('/api/monitors/:id/analytics', (req, res) => {
+	app.get('/api/monitors/:id/analytics', requireAuth, (req, res) => {
 		const monitor = store.get(req.params.id);
 		if (!monitor) return res.status(404).json({ error: 'Monitor not found' });
 		res.json({
@@ -475,7 +520,7 @@ function createApp() {
 		});
 	});
 
-	app.get('/api/monitors/:id/checks.csv', (req, res) => {
+	app.get('/api/monitors/:id/checks.csv', requireAuth, (req, res) => {
 		const monitor = store.get(req.params.id);
 		if (!monitor) return res.status(404).json({ error: 'Monitor not found' });
 		// History can be shaped by a backup import, and a CSV opened in a
@@ -498,7 +543,7 @@ function createApp() {
 		res.send(lines.join('\n'));
 	});
 
-	app.patch('/api/monitors/:id', (req, res) => {
+	app.patch('/api/monitors/:id', requireAuth, (req, res) => {
 		const monitor = store.get(req.params.id);
 		if (!monitor) return res.status(404).json({ error: 'Monitor not found' });
 
@@ -510,7 +555,7 @@ function createApp() {
 		if (body.enabled !== undefined) patch.enabled = Boolean(body.enabled);
 
 		// Explicit clears: the field was sent empty/zero → drop it from storage.
-		const clearable = ['expectedStatus', 'expectedKeyword', 'warnMs', 'failuresBeforeDown', 'body', 'headers'];
+		const clearable = ['expectedStatus', 'expectedKeyword', 'warnMs', 'failuresBeforeDown', 'body', 'headers', 'maintenanceUntil'];
 		for (const field of clearable) {
 			if (body[field] !== undefined && value[field] === undefined) patch[field] = undefined;
 		}
@@ -519,7 +564,7 @@ function createApp() {
 		res.json(publicMonitor(updated));
 	});
 
-	app.delete('/api/monitors/:id', (req, res) => {
+	app.delete('/api/monitors/:id', requireAuth, (req, res) => {
 		const monitor = store.get(req.params.id);
 		if (!monitor) return res.status(404).json({ error: 'Monitor not found' });
 		store.remove(req.params.id);
@@ -528,7 +573,7 @@ function createApp() {
 		res.status(204).end();
 	});
 
-	app.post('/api/monitors/:id/check', async (req, res, next) => {
+	app.post('/api/monitors/:id/check', requireAuth, async (req, res, next) => {
 		try {
 			const monitor = store.get(req.params.id);
 			if (!monitor) return res.status(404).json({ error: 'Monitor not found' });
@@ -542,7 +587,7 @@ function createApp() {
 		}
 	});
 
-	app.get('/api/incidents', (req, res) => {
+	app.get('/api/incidents', requireAuth, (req, res) => {
 		const limit = Math.max(1, Math.min(Number(req.query.limit) || 50, 200));
 		const incidents = store.incidents(limit, {
 			monitorId: typeof req.query.monitorId === 'string' ? req.query.monitorId : undefined,
@@ -558,12 +603,12 @@ function createApp() {
 		);
 	});
 
-	app.get('/api/export', (req, res) => {
+	app.get('/api/export', requireAuth, (req, res) => {
 		res.setHeader('Content-Disposition', `attachment; filename="novapulse-export-${Date.now()}.json"`);
 		res.json(store.exportState());
 	});
 
-	app.post('/api/import', (req, res) => {
+	app.post('/api/import', requireAuth, (req, res) => {
 		const mode = req.query.mode === 'replace' ? 'replace' : 'merge';
 		try {
 			const result = store.importState(req.body, mode);
@@ -576,7 +621,7 @@ function createApp() {
 
 	// ---- settings (status page, alert channel report) ----
 
-	app.get('/api/settings', (req, res) => {
+	app.get('/api/settings', requireAuth, (req, res) => {
 		// Google Maps keys are shipped to the browser by design — restrict one by
 		// HTTP referrer in the Google console. Never persisted, never exported.
 		res.json({
@@ -586,7 +631,7 @@ function createApp() {
 		});
 	});
 
-	app.patch('/api/settings', (req, res) => {
+	app.patch('/api/settings', requireAuth, (req, res) => {
 		const updated = store.updateSettings(req.body || {});
 		res.json({ ...updated, alerts: channelStatus() });
 	});
@@ -594,7 +639,7 @@ function createApp() {
 	// Fire a test alert on every configured channel so operators can verify the
 	// wiring from Settings without waiting for a real outage. `notify` never
 	// throws — failures are logged per channel and device-identifiable there.
-	app.post('/api/settings/test', async (req, res, next) => {
+	app.post('/api/settings/test', requireAuth, async (req, res, next) => {
 		try {
 			await notify(`🧪 NovaPulse test alert — if you can read this, the ${Object.entries(channelStatus()).filter(([, on]) => on).map(([c]) => c).join(', ') || 'no'} channel(s) are wired up.`, {
 				event: 'info',
@@ -608,7 +653,7 @@ function createApp() {
 
 	// Prometheus/OpenMetrics text exposition — screens into Grafana etc. without
 	// a scrape-side converter. Labels escape per the exposition spec (\, ", \n).
-	app.get('/api/metrics', (req, res) => {
+	app.get('/api/metrics', requireAuth, (req, res) => {
 		const monitors = store.list();
 		const lines = [];
 		const stats = store.stats();

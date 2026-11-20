@@ -151,7 +151,18 @@ function monitorRow(monitor, ctx) {
 			h('td', {}, [statusPill(status)]),
 			h('td', {}, [
 				h('div', { class: 'name-cell' }, [
-					h('b', { text: monitor.name }),
+					h('div', { style: 'display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;' }, [
+						h('b', { text: monitor.name }),
+						monitor.type === 'push'
+							? h('span', { class: 'chip chip-sm text-xs', text: 'push' })
+							: null,
+						monitor.ssl && monitor.ssl.daysLeft <= 14
+							? h('span', { class: 'chip chip-sm text-xs alert', text: `SSL ${monitor.ssl.daysLeft}d` })
+							: null,
+						monitor.maintenanceUntil && Date.now() < Date.parse(monitor.maintenanceUntil)
+							? h('span', { class: 'chip chip-sm text-xs', text: 'maintenance' })
+							: null,
+					]),
 					h('a', {
 						href: monitor.url,
 						text: monitor.url,
