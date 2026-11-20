@@ -143,7 +143,17 @@ colorScheme.addEventListener('change', () => {
 
 /* ---------------- data ---------------- */
 
+function stopPolling() {
+	if (pollTimer) {
+		clearInterval(pollTimer);
+		pollTimer = null;
+	}
+}
+
 async function loadData() {
+	if (state.route === 'login' || (state.auth?.authRequired && !state.auth?.authenticated)) {
+		return;
+	}
 	const [monitors, incidents, stats, health, settings, fleetAnalytics] = await Promise.all([
 		api.monitors(),
 		api.incidents({ limit: 100 }),
@@ -206,11 +216,16 @@ async function refresh({ silent = false } = {}) {
 }
 
 function startPolling() {
-	if (pollTimer) clearInterval(pollTimer);
+	stopPolling();
+	if (state.route === 'login' || (state.auth?.authRequired && !state.auth?.authenticated)) return;
 	if (!state.pollMs) return;
 	pollTimer = setInterval(() => {
 		if (document.hidden) return;
 		if (polling) return;
+		if (state.route === 'login' || (state.auth?.authRequired && !state.auth?.authenticated)) {
+			stopPolling();
+			return;
+		}
 
 		// Don't steal focus or clobber in-progress edits.
 		const view = document.getElementById('view');
@@ -414,6 +429,13 @@ function routeFromHash() {
 }
 
 function render() {
+	const isLogin = state.route === 'login';
+	document.body.classList.toggle('auth-mode', isLogin);
+	if (isLogin) {
+		stopPolling();
+		closeSse();
+	}
+
 	const view = document.getElementById('view');
 	const meta = VIEWS[state.route] || VIEWS.overview;
 
@@ -849,14 +871,32 @@ function wireChrome() {
 	});
 }
 
+let activeSse = null;
+
+function closeSse() {
+	if (activeSse) {
+		try {
+			activeSse.close();
+		} catch {
+			// ignore
+		}
+		activeSse = null;
+	}
+}
+
 function connectSse() {
 	if (isStatic || typeof EventSource === 'undefined') return;
+	if (state.route === 'login' || (state.auth?.authRequired && !state.auth?.authenticated)) {
+		closeSse();
+		return;
+	}
+	closeSse();
 	try {
-		const sse = new EventSource('/api/stream');
-		sse.addEventListener('check', () => {
+		activeSse = new EventSource('/api/stream');
+		activeSse.addEventListener('check', () => {
 			refresh({ silent: true });
 		});
-		sse.addEventListener('error', () => {
+		activeSse.addEventListener('error', () => {
 			// Browser reconnects automatically
 		});
 	} catch {
@@ -921,6 +961,8 @@ function updateAuthUI() {
 
 window.addEventListener('novapulse:unauthorized', () => {
 	if (state.auth.authRequired) {
+		stopPolling();
+		closeSse();
 		state.auth.authenticated = false;
 		state.monitors = [];
 		state.stats = null;

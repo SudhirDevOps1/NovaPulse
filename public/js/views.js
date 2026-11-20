@@ -1435,8 +1435,8 @@ export function renderLogin({ _ctx, onLogin } = {}) {
 		placeholder: 'admin or username',
 		autocomplete: 'username',
 		required: true,
+		autofocus: true,
 	});
-	userInput.value = 'admin';
 
 	const passInput = h('input', {
 		class: 'input',
@@ -1447,33 +1447,79 @@ export function renderLogin({ _ctx, onLogin } = {}) {
 		required: true,
 	});
 
-	const errorBanner = h('div', { class: 'banner error', style: 'display:none;margin-bottom:1rem;', role: 'alert' });
+	let showPassword = false;
+	const toggleIconSpan = h('span', {}, [iconEl('eye', 'icon icon-sm')]);
+	const toggleBtn = h('button', {
+		class: 'auth-pass-toggle',
+		type: 'button',
+		title: 'Show or hide password',
+		'aria-label': 'Show or hide password',
+		onclick: () => {
+			showPassword = !showPassword;
+			passInput.type = showPassword ? 'text' : 'password';
+			toggleIconSpan.replaceChildren(iconEl(showPassword ? 'eyeOff' : 'eye', 'icon icon-sm'));
+		},
+	}, [toggleIconSpan]);
+
+	const passGroup = h('div', { class: 'auth-input-group' }, [
+		passInput,
+		toggleBtn,
+	]);
+
+	const errorSlot = h('div', { class: 'login-error-slot' });
+
 	const submitBtn = h('button', {
 		class: 'btn btn-primary',
 		type: 'submit',
 		style: 'width:100%;margin-top:0.75rem;',
-		text: 'Sign In to Cluster',
+		text: 'Sign In to Control Plane',
 	});
 
 	const form = h('form', { novalidate: true }, [
-		errorBanner,
+		errorSlot,
 		h('label', { class: 'field', style: 'margin-bottom:1rem;' }, [
-			h('span', { text: 'Admin Username / Email' }),
+			h('span', { text: 'Username or Email' }),
 			userInput,
-			h('span', { class: 'hint', text: 'Configured via ADMIN_USER environment variable (default: admin)' }),
 		]),
 		h('label', { class: 'field', style: 'margin-bottom:1.5rem;' }, [
 			h('span', { text: 'Master Password' }),
-			passInput,
-			h('span', { class: 'hint', text: 'Configured via ADMIN_PASSWORD environment variable' }),
+			passGroup,
 		]),
 		submitBtn,
 	]);
 
+	const card = h('div', { class: 'auth-portal-card' }, [
+		h('div', { class: 'auth-header' }, [
+			h('div', { class: 'auth-logo-wrap' }, [
+				iconEl('pulse', 'icon icon-lg'),
+			]),
+			h('div', {}, [
+				h('span', { class: 'auth-badge', text: 'CONTROL PLANE' }),
+				h('h2', { class: 'auth-title', text: 'Admin Authentication' }),
+				h('p', { class: 'auth-desc', text: 'Sign in with your master credentials to manage monitors, incidents, and cluster infrastructure.' }),
+			]),
+		]),
+		form,
+		h('div', { class: 'auth-actions-foot' }, [
+			h('a', {
+				class: 'auth-status-link',
+				href: api.statusPageUrl(),
+				target: '_blank',
+				rel: 'noopener',
+			}, [
+				h('span', { text: 'Public Status Page' }),
+				iconEl('external', 'icon icon-sm'),
+			]),
+			h('div', { class: 'auth-security-note' }, [
+				iconEl('shield', 'icon icon-xs'),
+				h('span', { text: 'Protected by HMAC-SHA256 Session Security' }),
+			]),
+		]),
+	]);
+
 	form.addEventListener('submit', async (e) => {
 		e.preventDefault();
-		errorBanner.style.display = 'none';
-		errorBanner.textContent = '';
+		errorSlot.replaceChildren();
 		submitBtn.disabled = true;
 		submitBtn.textContent = 'Verifying credentials…';
 
@@ -1492,34 +1538,22 @@ export function renderLogin({ _ctx, onLogin } = {}) {
 			toast(`Authenticated as ${res.user || 'admin'}`, { type: 'success' });
 			if (onLogin) onLogin(res);
 		} catch (err) {
-			errorBanner.textContent = err.message || 'Invalid username or password';
-			errorBanner.style.display = 'flex';
+			errorSlot.replaceChildren(
+				h('div', { class: 'banner error', role: 'alert', style: 'margin-bottom:1rem;' }, [
+					iconEl('alert', 'icon'),
+					h('span', { text: err.message || 'Invalid username or password' }),
+				]),
+			);
+			card.classList.remove('auth-shake');
+			// trigger reflow
+			void card.offsetWidth;
+			card.classList.add('auth-shake');
 			passInput.focus();
 		} finally {
 			submitBtn.disabled = false;
-			submitBtn.textContent = 'Sign In to Cluster';
+			submitBtn.textContent = 'Sign In to Control Plane';
 		}
 	});
-
-	const card = h('div', { class: 'card', style: 'max-width:440px;margin:3rem auto;padding:2rem;' }, [
-		h('div', { style: 'text-align:center;margin-bottom:1.5rem;' }, [
-			h('div', { class: 'brand-mark', style: 'display:inline-flex;margin-bottom:0.75rem;padding:0.75rem;' }, [
-				iconEl('pulse', 'icon icon-lg'),
-			]),
-			h('h2', { style: 'margin:0 0 0.5rem 0;', text: 'NovaPulse Cluster Access' }),
-			h('p', { class: 'muted', style: 'margin:0;font-size:0.9rem;', text: 'Protected control plane. Enter your credentials to manage monitors, incidents, and cluster settings.' }),
-		]),
-		form,
-		h('div', { style: 'margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--line);text-align:center;' }, [
-			h('a', {
-				href: api.statusPageUrl(),
-				target: '_blank',
-				rel: 'noopener',
-				style: 'color:var(--brand);font-size:0.875rem;text-decoration:none;',
-				text: 'View Public Status Page →',
-			}),
-		]),
-	]);
 
 	return card;
 }
