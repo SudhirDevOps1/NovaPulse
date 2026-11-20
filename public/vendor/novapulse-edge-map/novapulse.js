@@ -813,16 +813,22 @@
       ? Math.round(alive.reduce(function (s, v) { return s + v.latency; }, 0) / alive.length)
       : 0;
 
-    var set = function (key, val, color) {
+    var set = function (key, val, unit, color) {
       var el = this._root.querySelector('[data-' + key + ']');
       if (!el) return;
-      el.textContent = val;
+      el.textContent = '';
+      el.appendChild(document.createTextNode(String(val)));
+      if (unit) {
+        var sm = document.createElement('small');
+        sm.textContent = ' ' + unit;
+        el.appendChild(sm);
+      }
       if (color) el.style.color = color;
     };
-    set.call(this, 'npsAvg', avg + ' <small>ms</small>');
-    set.call(this, 'npsUp', (up + warn) + ' <small>/' + nodes.length + '</small>', this.options.colors.Operational);
-    set.call(this, 'npsWarn', warn, this.options.colors.Degraded);
-    set.call(this, 'npsDown', down, this.options.colors.Down);
+    set.call(this, 'npsAvg', avg, 'ms');
+    set.call(this, 'npsUp', (up + warn), '/' + nodes.length, this.options.colors.Operational);
+    set.call(this, 'npsWarn', warn, null, this.options.colors.Degraded);
+    set.call(this, 'npsDown', down, null, this.options.colors.Down);
 
     var banner = this._root.querySelector('[data-nps-banner]');
     if (banner) {
