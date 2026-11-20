@@ -181,6 +181,7 @@ export default {
 
 		for (const monitor of monitors) {
 			if (!monitor.enabled) continue;
+			if (monitor.type === 'push') continue;
 			const last = monitor.lastCheck ? Date.parse(monitor.lastCheck.at) : 0;
 			const intervalMs = Math.max(10, monitor.intervalSec || 60) * 1000;
 			if (now - last < intervalMs) continue;

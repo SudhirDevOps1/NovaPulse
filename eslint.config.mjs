@@ -20,6 +20,8 @@ export default [
 			'gh-state/**',
 			'data/**',
 			'coverage/**',
+			'playwright-report/**',
+			'test-results/**',
 			'public/vendor/**',
 			'public/js/**/*.min.js',
 			'**/*.min.js',
