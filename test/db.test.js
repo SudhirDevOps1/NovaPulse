@@ -38,4 +38,6 @@ test('adapter selection based on environment variables', () => {
 	const { GithubAdapter } = require('../lib/db/github');
 	const github = new GithubAdapter('fake-token', 'owner/repo');
 	assert.equal(github.repo, 'owner/repo');
+	assert.equal(typeof github.syncState, 'function');
+	assert.equal(typeof neon.syncState, 'function');
 });
