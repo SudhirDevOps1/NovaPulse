@@ -14,10 +14,24 @@ export const isStatic = APP_MODE === 'static';
 
 async function request(path, options = {}) {
 	let response;
+	const headers = { ...(options.headers || {}) };
+	if (options.body && !headers['content-type']) {
+		headers['content-type'] = 'application/json';
+	}
+	try {
+		const token = localStorage.getItem('novapulse.token');
+		if (token && !headers['authorization']) {
+			headers['authorization'] = `Bearer ${token}`;
+		}
+	} catch {
+		/* localStorage blocked */
+	}
+
 	try {
 		response = await fetch(path, {
-			headers: options.body ? { 'content-type': 'application/json' } : undefined,
+			credentials: 'same-origin',
 			...options,
+			headers,
 		});
 	} catch {
 		throw new ApiError('Network unreachable — server not responding', { status: 0 });
@@ -27,6 +41,14 @@ async function request(path, options = {}) {
 
 	const data = await response.json().catch(() => ({}));
 	if (!response.ok) {
+		if (response.status === 401) {
+			try {
+				localStorage.removeItem('novapulse.token');
+			} catch {
+				/* ignore */
+			}
+			window.dispatchEvent(new CustomEvent('novapulse:unauthorized'));
+		}
 		const message = Array.isArray(data.errors)
 			? data.errors.join(', ')
 			: data.error || `Request failed (${response.status})`;
@@ -78,6 +100,18 @@ function filterIncidents(items, params = {}) {
 }
 
 export const api = {
+	authMe: () =>
+		isStatic
+			? Promise.resolve({ authRequired: false, authenticated: true, user: 'admin' })
+			: request('/api/auth/me'),
+	login: (credentials) =>
+		isStatic
+			? Promise.resolve({ ok: true })
+			: request('/api/auth/login', { method: 'POST', body: JSON.stringify(credentials) }),
+	logout: () =>
+		isStatic
+			? Promise.resolve({ ok: true })
+			: request('/api/auth/logout', { method: 'POST' }),
 	health: () => (isStatic ? snapshot().then((s) => s.health) : request('/api/health')),
 	stats: () => (isStatic ? snapshot().then((s) => s.stats) : request('/api/stats')),
 	monitors: () => (isStatic ? snapshot().then((s) => s.monitors) : request('/api/monitors')),

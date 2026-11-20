@@ -344,6 +344,9 @@ All settings configure via environment variables. The application boots with sen
 
 | Environment Variable | Default | Description |
 | :--- | :---: | :--- |
+| `ADMIN_USER` | `admin` | Admin username or email address for dashboard authentication. |
+| `ADMIN_PASSWORD` | – | Master admin password. When set, locks dashboard and management APIs behind secure session authentication. If unset, operates in open dev mode. |
+| `SESSION_SECRET` | auto | Secret key used to sign HMAC-SHA256 session tokens. Auto-generated per process if omitted. |
 | `PORT` | `3000` | HTTP port. Automatically provided on Render, Railway, Fly.io. |
 | `HOST` | `0.0.0.0` | Bind address. `0.0.0.0` is required for Docker containers. |
 | `NODE_ENV` | `development` | Setting to `production` switches logs to structured JSON. |
@@ -375,10 +378,8 @@ All settings configure via environment variables. The application boots with sen
 
 A commented template is provided in [`.env.example`](.env.example).
 
-> ⚠️ **NovaPulse ships no built-in authentication.** Anything that can reach
-> the port can read *and modify* every monitor, backup and incident. Keep it
-> on `localhost`, a private network, or behind a reverse proxy that
-> authenticates (`nginx` + OAuth2 Proxy, Cloudflare Access, Tailscale).
+> 🔐 **Cluster Authentication & Access Control**:
+> Set `ADMIN_PASSWORD` (and optionally `ADMIN_USER`) in your cloud provider environment (Render, Railway, Docker, etc.) to protect cluster management, monitor settings, and incident data behind authenticated login. The public status page (`/status`), embeddable SVG badges (`/api/badge/*`), RSS feed (`/api/feed.xml`), and ping heartbeats (`/api/ping/*`) always remain 100% public and accessible without credentials. If `ADMIN_PASSWORD` is unset, NovaPulse runs in open local dev mode.
 > See [`docs/SECURITY.md`](docs/SECURITY.md) for the full threat model.
 
 ---
