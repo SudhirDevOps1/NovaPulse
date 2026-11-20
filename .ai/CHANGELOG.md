@@ -13,6 +13,30 @@
 <!-- release-please-block -->
 <!-- release-please-unblock -->
 
+## [2026.2.0](https://github.com/SudhirDevOps1/NovaPulse/compare/v2026.1.4...v2026.2.0) (2026-11-20)
+
+
+### ✨ Features
+
+* **notify:** add stoat webhook support and remote db state sync ([#56](https://github.com/SudhirDevOps1/NovaPulse/issues/56)) ([6c16926](https://github.com/SudhirDevOps1/NovaPulse/commit/6c169261aab0543c63e34d385fb4bc21729e2512))
+* **security:** add altcha proof-of-work protection and webhook live testing ([#58](https://github.com/SudhirDevOps1/NovaPulse/issues/58)) ([df44cb0](https://github.com/SudhirDevOps1/NovaPulse/commit/df44cb0d53303ad2875f4a92ebead87ab6dd139c))
+* **security:** implement zero-dependency admin session auth and observability suite ([#55](https://github.com/SudhirDevOps1/NovaPulse/issues/55)) ([e60122f](https://github.com/SudhirDevOps1/NovaPulse/commit/e60122ffbe4fb0497d6749c76d64ba250c653dd8))
+
+
+### 🐛 Bug Fixes
+
+* **ci:** make render blueprint compliant with free tier ([#54](https://github.com/SudhirDevOps1/NovaPulse/issues/54)) ([58a1d47](https://github.com/SudhirDevOps1/NovaPulse/commit/58a1d477778707db8b7e33786cf102cd6570bb5b))
+* **security:** resolve ssrf bypass, sse crash, and alert latching ([#53](https://github.com/SudhirDevOps1/NovaPulse/issues/53)) ([d80ea86](https://github.com/SudhirDevOps1/NovaPulse/commit/d80ea862a22abc317361252aee31f7353c7d3667))
+* **ui:** redesign auth portal with full-screen layout and fix vercel hobby cron schedule ([#57](https://github.com/SudhirDevOps1/NovaPulse/issues/57)) ([f8caf09](https://github.com/SudhirDevOps1/NovaPulse/commit/f8caf0921c5aa707d60fe4960bd337fa05a3c048))
+* **ui:** render edge map stat units as dom elements instead of raw tags ([#59](https://github.com/SudhirDevOps1/NovaPulse/issues/59)) ([1bd6463](https://github.com/SudhirDevOps1/NovaPulse/commit/1bd646308b7d720aecee27532c548cb5710c10fd))
+
+
+### 📖 Documentation
+
+* sync .ai/ register after the repo-ops day (ADR-0009, BUG-2026-0014) ([554b383](https://github.com/SudhirDevOps1/NovaPulse/commit/554b383cd22593ee131206ebf4484ba8a055fca9))
+* sync README and docs/ with the release split and measured counts ([9b3d4f9](https://github.com/SudhirDevOps1/NovaPulse/commit/9b3d4f9dca14291a7c085e7d86f85b223bad5b4a))
+* sync the release split and measured counts into the docs ([f860261](https://github.com/SudhirDevOps1/NovaPulse/commit/f860261c78fd49edd02548d12e0d45f692f091cb))
+
 ## [2026.1.4](https://github.com/SudhirDevOps1/NovaPulse/compare/v2026.1.3...v2026.1.4) (2026-10-25)
 
 
