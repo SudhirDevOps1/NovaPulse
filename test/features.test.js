@@ -123,7 +123,7 @@ test('GET /api/feed.xml serves escaped RSS incidents', async () => {
 test('POST /api/settings/test reports configured channels', async () => {
 	const calls = [];
 	global.fetch = /** @type {any} */ (async (url, options) => {
-		if (/telegram|discord|slack|ntfy|webhook/i.test(url)) {
+		if (/telegram|discord|slack|ntfy|stoat|webhook/i.test(url)) {
 			calls.push({ url, options });
 			return { ok: true, status: 200 };
 		}

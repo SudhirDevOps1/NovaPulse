@@ -1,5 +1,6 @@
 import { api } from './api.js';
 import { iconEl } from './icons.js';
+import { createAltchaWidget } from './altcha.js';
 import {
 	h,
 	fmt,
@@ -1124,33 +1125,98 @@ export function renderSettings({ state, ctx, health }) {
 	const channelRows = [
 		['telegram', 'Telegram bot', 'TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID'],
 		['discord', 'Discord webhook', 'DISCORD_WEBHOOK_URL'],
+		['slack', 'Slack webhook', 'SLACK_WEBHOOK_URL'],
 		['ntfy', 'ntfy.sh push (phones)', 'NTFY_URL (+ NTFY_TOKEN)'],
 		['stoat', 'Stoat chat webhook', 'STOAT_WEBHOOK_URL'],
 		['webhook', 'Generic JSON webhook', 'WEBHOOK_URL (+ WEBHOOK_SECRET)'],
 	];
 	const alerts = health?.alerts || { telegram: Boolean(health?.telegram) };
 
+	const testAllBtn = h('button', {
+		class: 'btn btn-sm btn-outline',
+		type: 'button',
+		style: 'width: 100%; margin-top: 0.75rem; display: flex; justify-content: center; align-items: center; gap: 0.5rem;',
+		text: '🧪 Test all configured channels',
+		onclick: async () => {
+			testAllBtn.disabled = true;
+			testAllBtn.textContent = 'Dispatching test alerts…';
+			try {
+				const res = await api.testAlert('all');
+				const configuredResults = res.results?.filter((r) => r.configured) || [];
+				if (configuredResults.length === 0) {
+					toast('No alert channels are currently configured', { type: 'info' });
+				} else {
+					const successCount = configuredResults.filter((r) => r.ok).length;
+					const failCount = configuredResults.filter((r) => !r.ok).length;
+					if (failCount === 0) {
+						toast(`✓ All ${successCount} channel(s) verified successfully!`, { type: 'success' });
+					} else {
+						const failedNames = configuredResults.filter((r) => !r.ok).map((r) => r.channel).join(', ');
+						toast(`⚠️ ${successCount} passed, ${failCount} failed: ${failedNames}`, { type: 'warn' });
+					}
+				}
+			} catch (err) {
+				toast(`✗ Test failed: ${err.message}`, { type: 'error' });
+			} finally {
+				testAllBtn.disabled = false;
+				testAllBtn.textContent = '🧪 Test all configured channels';
+			}
+		},
+	});
+
 	const alertsCard = sectionCard({
 		title: 'Alert channels',
 		hint: 'every configured channel receives down, recovery, SSL and (optional) slow-response alerts',
 		body: h('div', {}, [
-			...channelRows.map(([key, label, env]) =>
-				h('div', { class: 'setting-row' }, [
+			...channelRows.map(([key, label, env]) => {
+				const isConfigured = Boolean(alerts[key]);
+				const testBtn = isConfigured
+					? h('button', {
+						class: 'btn btn-xs btn-outline',
+						type: 'button',
+						style: 'margin-left: 0.5rem;',
+						text: 'Test',
+						onclick: async () => {
+							testBtn.disabled = true;
+							testBtn.textContent = 'Testing…';
+							try {
+								const res = await api.testAlert(key);
+								const chResult = res.results?.find((r) => r.channel === key);
+								if (chResult && chResult.ok) {
+									toast(`✓ ${label} verified (${chResult.ms}ms)!`, { type: 'success' });
+								} else {
+									toast(`✗ ${label} test failed: ${chResult?.error || 'Unknown error'}`, { type: 'error' });
+								}
+							} catch (err) {
+								toast(`✗ ${label} test failed: ${err.message}`, { type: 'error' });
+							} finally {
+								testBtn.disabled = false;
+								testBtn.textContent = 'Test';
+							}
+						},
+					})
+					: null;
+
+				return h('div', { class: 'setting-row', style: 'display:flex; justify-content:space-between; align-items:center;' }, [
 					h('div', { class: 'setting-text' }, [
 						h('b', { text: label }),
 						h('span', {
-							text: alerts[key]
+							text: isConfigured
 								? 'Configured and enabled on this instance.'
 								: `Not configured — set ${env}${ctx.readOnly ? ' as repository secrets' : ' on the server'}.`,
 						}),
 					]),
-					h('span', { class: `status status-${alerts[key] ? 'up' : 'unknown'}` }, [
-						h('i', { class: 'dot' }),
-						alerts[key] ? 'enabled' : 'disabled',
+					h('div', { style: 'display:flex; align-items:center; gap:0.5rem; flex-shrink:0;' }, [
+						h('span', { class: `status status-${isConfigured ? 'up' : 'unknown'}` }, [
+							h('i', { class: 'dot' }),
+							isConfigured ? 'enabled' : 'disabled',
+						]),
+						testBtn,
 					]),
-				]),
-			),
-			h('div', { class: 'setting-row' }, [
+				]);
+			}),
+			testAllBtn,
+			h('div', { class: 'setting-row', style: 'margin-top: 1rem;' }, [
 				h('div', { class: 'setting-text' }, [
 					h('b', { text: 'Outage grace period' }),
 					h('span', {
@@ -1466,12 +1532,13 @@ export function renderLogin({ _ctx, onLogin } = {}) {
 		toggleBtn,
 	]);
 
+	const altchaWidget = createAltchaWidget();
 	const errorSlot = h('div', { class: 'login-error-slot' });
 
 	const submitBtn = h('button', {
 		class: 'btn btn-primary',
 		type: 'submit',
-		style: 'width:100%;margin-top:0.75rem;',
+		style: 'width:100%;margin-top:0.5rem;',
 		text: 'Sign In to Control Plane',
 	});
 
@@ -1481,10 +1548,11 @@ export function renderLogin({ _ctx, onLogin } = {}) {
 			h('span', { text: 'Username or Email' }),
 			userInput,
 		]),
-		h('label', { class: 'field', style: 'margin-bottom:1.5rem;' }, [
+		h('label', { class: 'field', style: 'margin-bottom:1.25rem;' }, [
 			h('span', { text: 'Master Password' }),
 			passGroup,
 		]),
+		altchaWidget,
 		submitBtn,
 	]);
 
@@ -1520,6 +1588,21 @@ export function renderLogin({ _ctx, onLogin } = {}) {
 	form.addEventListener('submit', async (e) => {
 		e.preventDefault();
 		errorSlot.replaceChildren();
+
+		const altchaPayload = altchaWidget.getPayload();
+		if (!altchaPayload) {
+			errorSlot.replaceChildren(
+				h('div', { class: 'banner error', role: 'alert', style: 'margin-bottom:1rem;' }, [
+					iconEl('alert', 'icon'),
+					h('span', { text: 'Please check the "I\'m not a robot" box to verify Proof-of-Work.' }),
+				]),
+			);
+			altchaWidget.classList.remove('auth-shake');
+			void altchaWidget.offsetWidth;
+			altchaWidget.classList.add('auth-shake');
+			return;
+		}
+
 		submitBtn.disabled = true;
 		submitBtn.textContent = 'Verifying credentials…';
 
@@ -1527,6 +1610,7 @@ export function renderLogin({ _ctx, onLogin } = {}) {
 			const res = await api.login({
 				username: userInput.value.trim(),
 				password: passInput.value,
+				altcha: altchaPayload,
 			});
 			if (res.token) {
 				try {
@@ -1538,6 +1622,7 @@ export function renderLogin({ _ctx, onLogin } = {}) {
 			toast(`Authenticated as ${res.user || 'admin'}`, { type: 'success' });
 			if (onLogin) onLogin(res);
 		} catch (err) {
+			altchaWidget.reset();
 			errorSlot.replaceChildren(
 				h('div', { class: 'banner error', role: 'alert', style: 'margin-bottom:1rem;' }, [
 					iconEl('alert', 'icon'),

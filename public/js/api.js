@@ -112,6 +112,14 @@ export const api = {
 		isStatic
 			? Promise.resolve({ ok: true })
 			: request('/api/auth/logout', { method: 'POST' }),
+	getAltchaChallenge: () =>
+		isStatic
+			? Promise.resolve({ algorithm: 'SHA-256', challenge: '', salt: '', signature: '', maxnumber: 0 })
+			: request('/api/auth/altcha'),
+	testAlert: (channel = 'all') =>
+		isStatic
+			? Promise.resolve({ ok: true, channels: {}, results: [] })
+			: request('/api/settings/test', { method: 'POST', body: JSON.stringify({ channel }) }),
 	health: () => (isStatic ? snapshot().then((s) => s.health) : request('/api/health')),
 	stats: () => (isStatic ? snapshot().then((s) => s.stats) : request('/api/stats')),
 	monitors: () => (isStatic ? snapshot().then((s) => s.monitors) : request('/api/monitors')),
