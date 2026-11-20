@@ -3,14 +3,10 @@ services:
     name: novapulse
     runtime: node
     plan: free
-    buildCommand: npm ci --omit=dev
+    buildCommand: npm install --omit=dev
     startCommand: node server.js
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 3000
-    disk:
-      name: novapulse-data
-      mountPath: /data
-      sizeGB: 1
