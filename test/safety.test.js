@@ -67,9 +67,12 @@ test('loopback, RFC1918, metadata and CGNAT addresses are all classified private
 		'0.0.0.0',
 		'255.255.255.255',
 		'::1',
+		'0:0:0:0:0:0:0:1',
+		'0000:0000:0000:0000:0000:0000:0000:0001',
 		'fe80::1',
 		'fd00::1',
 		'::ffff:192.168.0.1',
+		'0:0:0:0:0:ffff:127.0.0.1',
 	]) {
 		assert.equal(isPrivateAddress(address), true, `${address} must be blocked`);
 	}
@@ -285,4 +288,11 @@ test('a crafted backup cannot pollute object prototypes via header names', () =>
 	assert.equal(monitor.headers.isAdmin, undefined);
 	assert.notEqual(Object.getPrototypeOf(monitor.headers), poison, 'prototype chain untouched');
 	assert.notEqual(Object.getPrototypeOf({}).isAdmin, true, 'Object.prototype untouched');
+});
+
+test('handlePushPing rejects ping requests for non-push monitors', () => {
+	const { handlePushPing } = require('../lib/checker');
+	const httpMon = store.create({ name: 'Http Service', url: 'https://example.com' });
+	const result = handlePushPing(httpMon.id);
+	assert.equal(result, null, 'handlePushPing must reject non-push monitors');
 });

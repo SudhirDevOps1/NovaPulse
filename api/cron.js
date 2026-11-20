@@ -21,6 +21,7 @@ module.exports = async function handler(req, res) {
 
 	for (const monitor of monitors) {
 		if (!monitor.enabled) continue;
+		if (monitor.type === 'push') continue;
 		// Same cadence guard the Cloudflare edge worker applies: a monitor's own
 		// intervalSec stays meaningful even when the platform cron fires more
 		// often than the monitor needs.

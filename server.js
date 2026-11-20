@@ -394,9 +394,10 @@ function createApp() {
 		});
 		res.write(': connected\n\n');
 		sseClients.add(res);
-		req.on('close', () => {
-			sseClients.delete(res);
-		});
+		const cleanup = () => sseClients.delete(res);
+		req.on('close', cleanup);
+		res.on('close', cleanup);
+		res.on('error', cleanup);
 	});
 
 	// Dead Man's Switch / Cron Heartbeat push ping endpoint
@@ -775,6 +776,10 @@ function broadcastSse(eventType, data) {
 	if (!sseClients.size) return;
 	const payload = `event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`;
 	for (const client of sseClients) {
+		if (client.writableEnded || client.destroyed) {
+			sseClients.delete(client);
+			continue;
+		}
 		try {
 			client.write(payload);
 		} catch {
@@ -789,6 +794,10 @@ checkerEvents.on('check', (evt) => {
 
 setInterval(() => {
 	for (const client of sseClients) {
+		if (client.writableEnded || client.destroyed) {
+			sseClients.delete(client);
+			continue;
+		}
 		try {
 			client.write(': ping\n\n');
 		} catch {
